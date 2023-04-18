@@ -8,7 +8,6 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
-import android.os.CountDownTimer
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
@@ -70,6 +69,7 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
 
         if (verifyPermissions(this)) {
             countDown();
+            recordAudioTask();
             pullResponseTask();
         } else {
             ActivityCompat.requestPermissions(
@@ -90,6 +90,7 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Takes the user to the success fragment when permission is granted
                 countDown();
+                recordAudioTask();
                 pullResponseTask();
             } else {
                 Log.i(TAG, "Permission request denied");
@@ -99,16 +100,16 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
     }
 
     private fun countDown() {
-        var that = this
-        object : CountDownTimer(18000000, 10000) {
-            override fun onFinish() {}
-            override fun onTick(millisUntilFinished: Long) {
-                val timestamp: Long = System.currentTimeMillis();
-                Log.i(TAG, timestamp.toString());
-                pictureService?.startCapturing(that)
-                startRecording()
-            }
-        }.start()
+//        var that = this
+//        object : CountDownTimer(18000000, 10000) {
+//            override fun onFinish() {}
+//            override fun onTick(millisUntilFinished: Long) {
+//                val timestamp: Long = System.currentTimeMillis();
+//                Log.i(TAG, timestamp.toString());
+//                pictureService?.startCapturing(that)
+////                startRecording()
+//            }
+//        }.start()
     }
 
     override fun onCaptureDone(pictureUrl: String?, pictureData: ByteArray?) {
@@ -116,7 +117,7 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
             Log.i(TAG, "Picture saved to $pictureUrl")
         }
 
-        stopRecording()
+//        stopRecording()
         val mImageFile = File(
             getExternalFilesDir(null).toString() + "/" + System.currentTimeMillis()
                 .toString() + ".jpg"
@@ -204,6 +205,7 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
             }
 
             override fun onResponse(call: Call, response: Response) {
+                response.body!!.close()
 //                var responseStr = response.body!!.string()
 //                val responseObj = JSONObject(responseStr)
 //                val status = responseObj.getInt("status")
@@ -275,8 +277,24 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
                     val voice = res.getJSONObject("message").getString("voice")
                     voiceQueue.add(voice)
                 }
+                response.body!!.close()
             }
         })
+    }
+
+    private fun recordAudioTask() {
+        Timer().schedule(object : TimerTask() {
+            override fun run() {
+                if (mRecorder != null) {
+                    stopRecording()
+                    val data = JSONObject()
+                    data.put("uid", uid)
+                    data.put("gazes", JSONArray())
+                    uploadServer("http://10.176.34.117:9527/heartbeat", data, mAudioFile, null)
+                }
+                startRecording()
+            }
+        }, 0, 2000)
     }
 
     companion object {
