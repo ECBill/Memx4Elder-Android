@@ -1,31 +1,40 @@
 package life.memx.chat
 
-//import android.R
 
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.provider.Settings
-import android.util.Base64
 import android.util.Log
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import life.memx.chat.services.PictureCapturingListener
 import life.memx.chat.services.PictureCapturingService
-import okhttp3.*
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.LinkedList
+import java.util.Queue
+import java.util.Timer
+import java.util.TimerTask
 
 
 class MainActivity : AppCompatActivity(), PictureCapturingListener {
@@ -39,6 +48,8 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
     private var mRecorder: MediaRecorder? = null
     private var mAudioFile: File? = null
     private var mStartTime: Long = 0
+
+    private var voiceQueue: Queue<String> = LinkedList<String>()
 
     private val PERMISSIONS_REQUIRED = arrayOf<String>(
         Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -59,6 +70,7 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
 
         if (verifyPermissions(this)) {
             countDown();
+            pullResponseTask();
         } else {
             ActivityCompat.requestPermissions(
                 this, PERMISSIONS_REQUIRED, Companion.PERMISSIONS_REQUEST_CODE
@@ -78,6 +90,7 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Takes the user to the success fragment when permission is granted
                 countDown();
+                pullResponseTask();
             } else {
                 Log.i(TAG, "Permission request denied");
                 // Toast.makeText(context, "Permission request denied", Toast.LENGTH_LONG).show()
@@ -191,26 +204,76 @@ class MainActivity : AppCompatActivity(), PictureCapturingListener {
             }
 
             override fun onResponse(call: Call, response: Response) {
+//                var responseStr = response.body!!.string()
+//                val responseObj = JSONObject(responseStr)
+//                val status = responseObj.getInt("status")
+//                val res = responseObj.getJSONObject("response")
+//
+//                Log.i("onResponse", res.toString())
+//
+//                if (status == 1) {
+//                    val text = res.getJSONObject("message").getString("text")
+//                    val voice = res.getJSONObject("message").getString("voice")
+//
+//                    try {
+//                        val mediaPlayer = MediaPlayer()
+//                        mediaPlayer.setDataSource(voice)
+//                        mediaPlayer.prepare();
+//                        mediaPlayer.start()
+//
+//                    } catch (ex: Exception) {
+//                        print(ex.message)
+//                    }
+//                }
+            }
+        })
+    }
+
+    private fun pullResponseTask() {
+        Timer().schedule(object : TimerTask() {
+            override fun run() {
+                pullResponse()
+            }
+        }, 0, 100)
+        GlobalScope.launch {
+            while (true) {
+                if (voiceQueue.isEmpty()) {
+                    continue
+                }
+                val mediaPlayer = MediaPlayer()
+                try {
+                    mediaPlayer.setDataSource(voiceQueue.remove())
+                    mediaPlayer.prepare();
+                    mediaPlayer.start()
+                } catch (ex: Exception) {
+                    print(ex.message)
+                }
+                while (mediaPlayer.isPlaying) {
+                }
+            }
+        }
+    }
+
+    private fun pullResponse() {
+        var url = "http://10.176.34.117:9527/response/$uid"
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, e.toString())
+            }
+
+            override fun onResponse(call: Call, response: Response) {
                 var responseStr = response.body!!.string()
                 val responseObj = JSONObject(responseStr)
                 val status = responseObj.getInt("status")
                 val res = responseObj.getJSONObject("response")
 
-                Log.i("onResponse", res.toString())
-
                 if (status == 1) {
+                    Log.i("onResponse", res.toString())
                     val text = res.getJSONObject("message").getString("text")
                     val voice = res.getJSONObject("message").getString("voice")
-
-                    try {
-                        val mediaPlayer = MediaPlayer()
-                        mediaPlayer.setDataSource(voice)
-                        mediaPlayer.prepare();
-                        mediaPlayer.start()
-
-                    } catch (ex: Exception) {
-                        print(ex.message)
-                    }
+                    voiceQueue.add(voice)
                 }
             }
         })
