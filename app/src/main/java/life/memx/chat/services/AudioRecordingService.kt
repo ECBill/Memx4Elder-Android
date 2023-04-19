@@ -10,7 +10,7 @@ import java.util.Queue
 
 
 class AudioRecording internal constructor(var queue: Queue<ByteArray>) {
-    private val TAG: String = PictureCapturingService::class.java.simpleName
+    private val TAG: String = AudioRecording::class.java.simpleName
 
     private val audioSource: Int = MediaRecorder.AudioSource.MIC
     private val sampleRateInHz: Int = 16000
@@ -29,8 +29,9 @@ class AudioRecording internal constructor(var queue: Queue<ByteArray>) {
             audioRecorder.startRecording()
         } catch (e: Exception) {
             Log.e(TAG, e.toString())
+            return
         }
-        val recordThtead = Thread(Runnable {
+        Thread(Runnable {
             while (true) {
                 val buffer = ByteArray(bufferSizeInBytes)
                 val read = audioRecorder.read(buffer, 0, bufferSizeInBytes)
@@ -38,8 +39,7 @@ class AudioRecording internal constructor(var queue: Queue<ByteArray>) {
                     queue.add(buffer)
                 }
             }
-        })
-        recordThtead.start()
+        }).start()
     }
 
     fun stopRecording() {
