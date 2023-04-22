@@ -158,9 +158,10 @@ class ImageCapturing internal constructor(
         val captureBuilder =
             cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
         captureBuilder.addTarget(imageReader.surface)
+        captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
         captureBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
         captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON)
-        captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+//        captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
         captureBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range.create(5, 30))
         captureBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CameraMetadata.CONTROL_AWB_MODE_AUTO)
 //        captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_90)
