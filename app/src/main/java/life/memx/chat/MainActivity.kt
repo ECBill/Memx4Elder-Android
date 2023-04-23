@@ -212,6 +212,7 @@ class MainActivity : AppCompatActivity() {
                 if (voiceQueue.isEmpty()) {
                     continue
                 }
+                audioRecorder.stopRecording()
                 val mediaPlayer = MediaPlayer()
                 try {
                     mediaPlayer.setDataSource(voiceQueue.remove())
@@ -222,6 +223,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 while (mediaPlayer.isPlaying) {
                 }
+                audioRecorder.startRecording()
             }
         }
     }

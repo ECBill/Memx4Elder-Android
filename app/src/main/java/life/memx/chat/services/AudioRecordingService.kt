@@ -17,24 +17,29 @@ class AudioRecording internal constructor(var queue: Queue<ByteArray>) {
     private val channelConfig: Int = AudioFormat.CHANNEL_IN_MONO
     private val audioFormat: Int = AudioFormat.ENCODING_PCM_16BIT
     private val bufferSizeInBytes: Int = 32000
+    private var isRecording: Boolean = false
+    private var audioRecorder: AudioRecord? = null
 
 
     @SuppressLint("MissingPermission")
-    private var audioRecorder: AudioRecord =
-        AudioRecord(audioSource, sampleRateInHz, channelConfig, audioFormat, bufferSizeInBytes)
-
-
     fun startRecording() {
+        Log.d(TAG, "startRecording")
+        audioRecorder =
+            AudioRecord(audioSource, sampleRateInHz, channelConfig, audioFormat, bufferSizeInBytes)
         try {
-            audioRecorder.startRecording()
+            audioRecorder!!.startRecording()
         } catch (e: Exception) {
             Log.e(TAG, e.toString())
             return
         }
+        isRecording = true
         Thread(Runnable {
             while (true) {
+                if (!isRecording) {
+                    break
+                }
                 val buffer = ByteArray(bufferSizeInBytes)
-                val read = audioRecorder.read(buffer, 0, bufferSizeInBytes)
+                val read = audioRecorder!!.read(buffer, 0, bufferSizeInBytes)
                 if (read > 0) {
                     queue.add(buffer)
                 }
@@ -43,8 +48,10 @@ class AudioRecording internal constructor(var queue: Queue<ByteArray>) {
     }
 
     fun stopRecording() {
+        Log.d(TAG, "stopRecording")
         try {
-            audioRecorder.release()
+            isRecording = false
+            audioRecorder?.release()
         } catch (e: Exception) {
             Log.e(TAG, e.toString())
         }
