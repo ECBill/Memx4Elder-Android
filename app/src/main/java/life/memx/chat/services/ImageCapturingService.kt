@@ -77,7 +77,7 @@ class ImageCapturing internal constructor(
                 }
                 openCamera()
             }
-        }, 0, 1000)
+        }, 0, 3000)
     }
 
     fun stopCapturing() {
@@ -102,11 +102,11 @@ class ImageCapturing internal constructor(
 
 
     private fun closeCamera() {
-        if (null != cameraDevice && cameraOpened) {
+        cameraOpened = false
+        if (null != cameraDevice) {
             Log.i(TAG, "Closing Camera: " + cameraDevice!!.id)
             cameraDevice!!.close()
             cameraDevice = null
-            cameraOpened = false
         }
     }
 
