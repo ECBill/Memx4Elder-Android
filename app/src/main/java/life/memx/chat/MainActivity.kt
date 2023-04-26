@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
+import android.widget.Switch
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -61,6 +62,9 @@ class MainActivity : AppCompatActivity() {
     private var audioRecorder = AudioRecording(audioQueue)
     private var imageCapturer = ImageCapturing(imageQueue, this)
 
+    private var cameraSwitch: Switch? = null
+    private var audioSwitch: Switch? = null
+
     private fun verifyPermissions(activity: Activity) = PERMISSIONS_REQUIRED.all {
         ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
     }
@@ -80,6 +84,32 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(
                 this, PERMISSIONS_REQUIRED, PERMISSIONS_REQUEST_CODE
             )
+        }
+    }
+
+    private fun registerCameraSwitch() {
+        cameraSwitch = findViewById(R.id.camera_switch)
+        cameraSwitch?.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                imageCapturer.setNeedCapturing(true)
+                Log.d(TAG, "setNeedCapturing: true")
+            } else {
+                imageCapturer.setNeedCapturing(false)
+                Log.d(TAG, "setNeedCapturing: false")
+            }
+        }
+    }
+
+    private fun registerAudioSwitch() {
+        audioSwitch = findViewById(R.id.audio_switch)
+        audioSwitch?.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                audioRecorder.startRecording()
+                Log.d(TAG, "setNeedRecording: true")
+            } else {
+                audioRecorder.stopRecording()
+                Log.d(TAG, "setNeedRecording: false")
+            }
         }
     }
 
@@ -104,6 +134,8 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun run() {
+        registerCameraSwitch()
+        registerAudioSwitch()
         imageCapturer.startCapturing()
         audioRecorder.startRecording()
         pullResponseTask()
@@ -124,14 +156,12 @@ class MainActivity : AppCompatActivity() {
                 data.put("timestamp", System.currentTimeMillis())
                 var mAudioFile = getAudio()
                 var mImageFile = getImage()
-                if (mAudioFile != null) {
-                    uploadServer(
-                        "http://10.176.34.117:9527/heartbeat",
-                        data,
-                        mAudioFile,
-                        mImageFile
-                    )
-                }
+                uploadServer(
+                    "http://10.176.34.117:9527/heartbeat",
+                    data,
+                    mAudioFile,
+                    mImageFile
+                )
             }
         }, 0, 1000)
     }
