@@ -35,13 +35,11 @@ class ImageCapturing internal constructor(
 
     private lateinit var context: Context
     private lateinit var manager: CameraManager
+    private lateinit var capturingExecutor: ScheduledExecutorService
 
     private var cameraOpened = false
+    private var needCapturing = true
     private var cameraDevice: CameraDevice? = null
-
-    private var capturingExecutor: ScheduledExecutorService =
-        Executors.newSingleThreadScheduledExecutor()
-
 
     private val onImageAvailableListener =
         ImageReader.OnImageAvailableListener { imReader: ImageReader ->
@@ -69,8 +67,13 @@ class ImageCapturing internal constructor(
     fun startCapturing() {
         context = activity.applicationContext
         manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        capturingExecutor = Executors.newSingleThreadScheduledExecutor()
         Timer().schedule(object : TimerTask() {
             override fun run() {
+                if (!needCapturing) {
+                    Log.i(TAG, "Don't need capturing")
+                    return
+                }
                 if (cameraOpened) {
                     Log.i(TAG, "Camera is already opened")
                     return
@@ -85,6 +88,9 @@ class ImageCapturing internal constructor(
         capturingExecutor.shutdown()
     }
 
+    fun setNeedCapturing(needCapturing: Boolean) {
+        this.needCapturing = needCapturing
+    }
 
     @SuppressLint("MissingPermission")
     private fun openCamera() {
@@ -158,7 +164,10 @@ class ImageCapturing internal constructor(
         val captureBuilder =
             cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
         captureBuilder.addTarget(imageReader.surface)
-        captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+        captureBuilder.set(
+            CaptureRequest.CONTROL_AF_MODE,
+            CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE
+        )
         captureBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
         captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON)
 //        captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
