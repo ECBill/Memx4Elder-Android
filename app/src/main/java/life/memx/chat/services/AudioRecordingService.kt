@@ -18,11 +18,16 @@ class AudioRecording internal constructor(var queue: Queue<ByteArray>) {
     private val audioFormat: Int = AudioFormat.ENCODING_PCM_16BIT
     private val bufferSizeInBytes: Int = 32000
     private var isRecording: Boolean = false
+    private var needRecording: Boolean = true
     private var audioRecorder: AudioRecord? = null
 
 
     @SuppressLint("MissingPermission")
     fun startRecording() {
+        if (!needRecording){
+            Log.d(TAG, "needRecording is false")
+            return
+        }
         Log.d(TAG, "startRecording")
         audioRecorder =
             AudioRecord(audioSource, sampleRateInHz, channelConfig, audioFormat, bufferSizeInBytes)
@@ -55,5 +60,9 @@ class AudioRecording internal constructor(var queue: Queue<ByteArray>) {
         } catch (e: Exception) {
             Log.e(TAG, e.toString())
         }
+    }
+
+    fun setNeedRecording(needRecording: Boolean) {
+        this.needRecording = needRecording
     }
 }

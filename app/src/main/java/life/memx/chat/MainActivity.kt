@@ -11,7 +11,10 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
+import android.widget.Button
+import android.widget.EditText
 import android.widget.Switch
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -64,6 +67,8 @@ class MainActivity : AppCompatActivity() {
 
     private var cameraSwitch: Switch? = null
     private var audioSwitch: Switch? = null
+    private var userText: EditText? = null
+    private var userTextBtn: Button? = null
 
     private fun verifyPermissions(activity: Activity) = PERMISSIONS_REQUIRED.all {
         ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
@@ -100,15 +105,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
     private fun registerAudioSwitch() {
         audioSwitch = findViewById(R.id.audio_switch)
         audioSwitch?.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
+                audioRecorder.setNeedRecording(true)
                 audioRecorder.startRecording()
                 Log.d(TAG, "setNeedRecording: true")
             } else {
+                audioRecorder.setNeedRecording(false)
                 audioRecorder.stopRecording()
                 Log.d(TAG, "setNeedRecording: false")
+            }
+        }
+    }
+
+    private fun registerUsetText() {
+        userText = findViewById(R.id.user_text)
+        userText?.setText(uid)
+        userTextBtn = findViewById(R.id.upload_user_text)
+        userTextBtn?.setOnClickListener {
+            val text = userText?.text.toString()
+            if (text.isNotEmpty()) {
+                Log.d(TAG, "user text: $text")
+                uid = text
+                Toast.makeText(applicationContext, "设置用户: $text", Toast.LENGTH_SHORT).show();
+            } else {
+                Log.d(TAG, "user text is empty")
             }
         }
     }
@@ -134,6 +158,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun run() {
+        registerUsetText()
         registerCameraSwitch()
         registerAudioSwitch()
         imageCapturer.startCapturing()
