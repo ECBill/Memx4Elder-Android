@@ -261,7 +261,7 @@ class MainActivity : AppCompatActivity() {
             override fun run() {
                 pullResponse()
             }
-        }, 0, 100)
+        }, 0, 200)
         GlobalScope.launch {
             while (true) {
                 if (voiceQueue.isEmpty()) {
