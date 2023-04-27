@@ -50,6 +50,7 @@ class ImageCapturing internal constructor(
             queue.add(bytes)
             image.close()
             imReader.close()
+            closeCamera()
         }
 
     private val captureListener: CameraCaptureSession.CaptureCallback =
@@ -67,7 +68,6 @@ class ImageCapturing internal constructor(
     fun startCapturing() {
         context = activity.applicationContext
         manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        capturingExecutor = Executors.newSingleThreadScheduledExecutor()
         Timer().schedule(object : TimerTask() {
             override fun run() {
                 if (!needCapturing) {
@@ -85,7 +85,6 @@ class ImageCapturing internal constructor(
 
     fun stopCapturing() {
         closeCamera()
-        capturingExecutor.shutdown()
     }
 
     fun setNeedCapturing(needCapturing: Boolean) {
@@ -114,6 +113,7 @@ class ImageCapturing internal constructor(
             cameraDevice!!.close()
             cameraDevice = null
         }
+        capturingExecutor.shutdown()
     }
 
 
@@ -122,6 +122,7 @@ class ImageCapturing internal constructor(
             cameraOpened = true
             cameraDevice = camera
             Log.i(TAG, "Camera Opened: " + camera.id)
+            capturingExecutor = Executors.newSingleThreadScheduledExecutor()
             capturingExecutor.schedule(
                 {
                     try {
