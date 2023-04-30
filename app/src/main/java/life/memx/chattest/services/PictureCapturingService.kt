@@ -1,4 +1,4 @@
-package life.memx.chat.services
+package life.memx.chattest.services
 
 
 import android.Manifest
@@ -11,12 +11,10 @@ import android.hardware.camera2.CameraCaptureSession.CaptureCallback
 import android.media.Image
 import android.media.ImageReader
 import android.media.ImageReader.OnImageAvailableListener
-import android.os.Environment
 import android.os.Handler
 import android.util.Log
 import android.util.Range
 import android.util.Size
-import android.util.SparseIntArray
 import android.view.Surface
 import androidx.core.app.ActivityCompat
 import java.io.File

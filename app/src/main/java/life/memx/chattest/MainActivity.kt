@@ -1,4 +1,4 @@
-package life.memx.chat
+package life.memx.chattest
 
 
 import android.Manifest
@@ -20,8 +20,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import life.memx.chat.services.AudioRecording
-import life.memx.chat.services.ImageCapturing
+import life.memx.chattest.services.AudioRecording
+import life.memx.chattest.services.ImageCapturing
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -182,7 +182,7 @@ class MainActivity : AppCompatActivity() {
                 var mAudioFile = getAudio()
                 var mImageFile = getImage()
                 uploadServer(
-                    "http://10.176.34.117:9527/heartbeat",
+                    "https://gate.luzy.top/heartbeat",
                     data,
                     mAudioFile,
                     mImageFile
@@ -284,7 +284,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pullResponse() {
-        var url = "http://10.176.34.117:9527/response/$uid"
+        var url = "https://gate.luzy.top/response/$uid"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {

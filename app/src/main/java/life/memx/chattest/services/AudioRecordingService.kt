@@ -1,4 +1,4 @@
-package life.memx.chat.services
+package life.memx.chattest.services
 
 
 import android.annotation.SuppressLint
