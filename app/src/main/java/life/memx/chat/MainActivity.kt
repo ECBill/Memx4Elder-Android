@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private val TAG: String = MainActivity::class.java.simpleName
 
     private var uid: String = ""
+    private val server_url: String = "http://10.176.34.117:9527"
 
     private val PERMISSIONS_REQUIRED: Array<String> = arrayOf<String>(
         Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -182,7 +183,7 @@ class MainActivity : AppCompatActivity() {
                 var mAudioFile = getAudio()
                 var mImageFile = getImage()
                 uploadServer(
-                    "http://10.176.34.117:9527/heartbeat",
+                    "$server_url/heartbeat",
                     data,
                     mAudioFile,
                     mImageFile
@@ -261,7 +262,7 @@ class MainActivity : AppCompatActivity() {
             override fun run() {
                 pullResponse()
             }
-        }, 0, 200)
+        }, 0, 500)
         GlobalScope.launch {
             while (true) {
                 if (voiceQueue.isEmpty()) {
@@ -284,7 +285,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pullResponse() {
-        var url = "http://10.176.34.117:9527/response/$uid"
+        var url = "$server_url/response/$uid"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {
