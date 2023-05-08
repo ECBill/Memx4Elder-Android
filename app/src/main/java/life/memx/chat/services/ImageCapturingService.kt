@@ -80,7 +80,7 @@ class ImageCapturing internal constructor(
                 }
                 openCamera()
             }
-        }, 0, 3000)
+        }, 0, 5000)
     }
 
     fun stopCapturing() {
@@ -131,7 +131,7 @@ class ImageCapturing internal constructor(
                     } catch (e: CameraAccessException) {
                         Log.e(TAG, "CameraAccessException: ", e)
                     }
-                }, 500, java.util.concurrent.TimeUnit.MILLISECONDS
+                }, 3000, java.util.concurrent.TimeUnit.MILLISECONDS
             )
         }
 
