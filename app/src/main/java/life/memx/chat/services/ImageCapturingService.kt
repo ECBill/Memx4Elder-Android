@@ -131,7 +131,7 @@ class ImageCapturing internal constructor(
                     } catch (e: CameraAccessException) {
                         Log.e(TAG, "CameraAccessException: ", e)
                     }
-                }, 3000, java.util.concurrent.TimeUnit.MILLISECONDS
+                }, 500, java.util.concurrent.TimeUnit.MILLISECONDS
             )
         }
 
