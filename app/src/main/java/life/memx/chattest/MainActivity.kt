@@ -14,6 +14,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Switch
+import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
@@ -21,7 +22,7 @@ import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import life.memx.chattest.services.AudioRecording
-import life.memx.chattest.services.ImageCapturing
+import life.memx.chattest.services.CameraXService
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -63,12 +64,15 @@ class MainActivity : AppCompatActivity() {
     private var voiceQueue: Queue<String> = LinkedList<String>()
 
     private var audioRecorder = AudioRecording(audioQueue)
-    private var imageCapturer = ImageCapturing(imageQueue, this)
+//    private var imageCapturer = ImageCapturing(imageQueue, this)
+    private  var imageCapturer = CameraXService(imageQueue, this)
 
     private var cameraSwitch: Switch? = null
     private var audioSwitch: Switch? = null
     private var userText: EditText? = null
+    private var responseText: TextView? = null
     private var userTextBtn: Button? = null
+    private var responseQueue: Queue<String> = LinkedList<String>()
 
     private fun verifyPermissions(activity: Activity) = PERMISSIONS_REQUIRED.all {
         ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
@@ -79,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        deleteCache()
 
         uid = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
         Log.i(TAG, "uid: $uid")
@@ -135,6 +140,22 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "user text is empty")
             }
         }
+    }
+
+    private fun setResponseText(text: String) {
+        responseText = findViewById(R.id.response_text)
+        responseQueue.add(text)
+
+        if(responseQueue.size >= 10){
+            responseQueue.remove()
+        }
+
+        var display_text = ""
+        for (item in responseQueue){
+            display_text += item + "\n"
+        }
+        runOnUiThread { responseText?.setText(display_text) }
+
     }
 
     override fun onRequestPermissionsResult(
@@ -302,11 +323,39 @@ class MainActivity : AppCompatActivity() {
                     Log.i("onResponse", res.toString())
                     val text = res.getJSONObject("message").getString("text")
                     val voice = res.getJSONObject("message").getString("voice")
+                    setResponseText(text)
                     voiceQueue.add(voice)
+
+
                 }
                 response.body!!.close()
             }
         })
+    }
+
+    fun deleteCache() {
+        try {
+            val dir = this.cacheDir
+            deleteDir(dir)
+        } catch (e: java.lang.Exception) {
+        }
+    }
+
+    fun deleteDir(dir: File?): Boolean {
+        return if (dir != null && dir.isDirectory) {
+            val children = dir.list()
+            for (i in children.indices) {
+                val success = deleteDir(File(dir, children[i]))
+                if (!success) {
+                    return false
+                }
+            }
+            dir.delete()
+        } else if (dir != null && dir.isFile) {
+            dir.delete()
+        } else {
+            false
+        }
     }
 }
 
