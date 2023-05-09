@@ -33,7 +33,7 @@
     <!--        tools:layout_editor_absoluteY="243dp" />-->
 
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:gravity="center_horizontal"
@@ -70,6 +70,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="提交" />
+
+        <androidx.camera.view.PreviewView
+            android:id="@+id/previewView"
+            android:layout_width="118dp"
+            android:layout_height="133dp" />
+        <TextView
+            android:id="@+id/response_text"
+            android:layout_width="290dp"
+            android:layout_height="304dp"
+            android:hint="Response" />
     </LinearLayout>
 
 
