@@ -185,7 +185,7 @@ class MainActivity : AppCompatActivity() {
         registerAudioSwitch()
         imageCapturer.startCapturing()
 
-        imageCapturer.setImageSize(720,1280)
+        imageCapturer.setImageSize(720,960)
         audioRecorder.startRecording()
         pullResponseTask()
         Timer().schedule(object : TimerTask() {
