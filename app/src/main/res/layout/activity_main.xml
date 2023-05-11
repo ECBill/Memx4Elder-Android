@@ -65,6 +65,12 @@
             android:hint="用户ID"
             android:inputType="text" />
 
+        <Spinner
+            android:id="@+id/server_spinner"
+            android:layout_width="230dp"
+            android:layout_height="34dp"
+            android:entries="@array/server_ips" />
+
         <Button
             android:id="@+id/upload_user_text"
             android:layout_width="wrap_content"

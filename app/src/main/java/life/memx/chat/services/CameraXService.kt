@@ -47,7 +47,7 @@ class CameraXService internal constructor(
 
         val runTask: Runnable = object : Runnable {
             override fun run() {
-                handler.postDelayed(this, 5000) // 拍照间隔
+                handler.postDelayed(this, 10000) // 拍照间隔
                 if (!needCapturing) {
                     Log.i(TAG, "Don't need capturing")
                     return
@@ -168,7 +168,6 @@ class CameraXService internal constructor(
     private fun initTakePictureCases() {
         // ImageCapture
         imageCapture = ImageCapture.Builder()
-            .setFlashMode(ImageCapture.FLASH_MODE_AUTO)
 //            .setTargetAspectRatio(aspectRatio())
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)//低延迟低质量
             .setFlashMode(ImageCapture.FLASH_MODE_OFF)//闪光灯

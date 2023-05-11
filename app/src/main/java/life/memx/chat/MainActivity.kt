@@ -10,9 +10,12 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.view.View
 import android.view.WindowManager
+import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
@@ -47,7 +50,7 @@ class MainActivity : AppCompatActivity() {
     private val TAG: String = MainActivity::class.java.simpleName
 
     private var uid: String = ""
-    private val server_url: String = "http://10.176.34.117:9527"
+    private var server_url: String = "http://10.176.34.117:9527"
 
     private val PERMISSIONS_REQUIRED: Array<String> = arrayOf<String>(
         Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -71,6 +74,8 @@ class MainActivity : AppCompatActivity() {
     private var cameraSwitch: Switch? = null
     private var audioSwitch: Switch? = null
     private var userText: EditText? = null
+    private var serverSpinner: Spinner? = null
+
     private var responseText: TextView? = null
     private var userTextBtn: Button? = null
     private var responseQueue: Queue<String> = LinkedList<String>()
@@ -142,12 +147,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    private fun registerServerSpinner() {
+        serverSpinner =  findViewById(R.id.server_spinner)
+        serverSpinner?.setOnItemSelectedListener(object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                val server_ips = resources.getStringArray(R.array.server_ips)
+                server_url = server_ips[pos]
+                Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT).show();
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // Another interface callback
+            }
+        })
+    }
 
     private fun setResponseText(text: String) {
         responseText = findViewById(R.id.response_text)
         responseQueue.add(text)
 
-        if(responseQueue.size >= 10){
+        if(responseQueue.size >= 15){
             responseQueue.remove()
         }
 
@@ -183,9 +202,10 @@ class MainActivity : AppCompatActivity() {
         registerUsetText()
         registerCameraSwitch()
         registerAudioSwitch()
+        registerServerSpinner()
         imageCapturer.startCapturing()
 
-        imageCapturer.setImageSize(720,1280)
+        imageCapturer.setImageSize(720,960)
         audioRecorder.startRecording()
         pullResponseTask()
         Timer().schedule(object : TimerTask() {
