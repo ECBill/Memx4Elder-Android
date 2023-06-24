@@ -65,11 +65,14 @@ class MainActivity : AppCompatActivity() {
 
     private var audioQueue: Queue<ByteArray> = LinkedList<ByteArray>()
     private var imageQueue: Queue<ByteArray> = LinkedList<ByteArray>()
-    private var voiceQueue: Queue<String> = LinkedList<String>()
+
+    //    private var voiceQueue: Queue<String> = LinkedList<String>()
+    private var voiceQueue: Queue<StringBuffer> = LinkedList<StringBuffer>()
 
     private var audioRecorder = AudioRecording(audioQueue)
-//    private var imageCapturer = ImageCapturing(imageQueue, this)
-    private  var imageCapturer = CameraXService(imageQueue, this)
+
+    //    private var imageCapturer = ImageCapturing(imageQueue, this)
+    private var imageCapturer = CameraXService(imageQueue, this)
 
     private var cameraSwitch: Switch? = null
     private var audioSwitch: Switch? = null
@@ -147,13 +150,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
     private fun registerServerSpinner() {
-        serverSpinner =  findViewById(R.id.server_spinner)
+        serverSpinner = findViewById(R.id.server_spinner)
         serverSpinner?.setOnItemSelectedListener(object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
                 val server_ips = resources.getStringArray(R.array.server_ips)
                 server_url = server_ips[pos]
-                Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT).show();
+                Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT)
+                    .show();
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -166,12 +171,12 @@ class MainActivity : AppCompatActivity() {
         responseText = findViewById(R.id.response_text)
         responseQueue.add(text)
 
-        if(responseQueue.size >= 15){
+        if (responseQueue.size >= 15) {
             responseQueue.remove()
         }
 
         var display_text = ""
-        for (item in responseQueue){
+        for (item in responseQueue) {
             display_text += item + "\n"
         }
         runOnUiThread { responseText?.setText(display_text) }
@@ -205,7 +210,7 @@ class MainActivity : AppCompatActivity() {
         registerServerSpinner()
         imageCapturer.startCapturing()
 
-        imageCapturer.setImageSize(720,960)
+        imageCapturer.setImageSize(720, 960)
         audioRecorder.startRecording()
         pullResponseTask()
         Timer().schedule(object : TimerTask() {
@@ -314,7 +319,8 @@ class MainActivity : AppCompatActivity() {
                 audioRecorder.stopRecording()
                 val mediaPlayer = MediaPlayer()
                 try {
-                    mediaPlayer.setDataSource(voiceQueue.remove())
+//                    mediaPlayer.setDataSource(voiceQueue.remove())
+                    mediaPlayer.setDataSource(voiceQueue.remove().toString())
                     mediaPlayer.prepare();
                     mediaPlayer.start()
                 } catch (ex: Exception) {
@@ -327,8 +333,37 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+//    private fun pullResponse() {
+//        var url = "$server_url/response/$uid"
+//        val client = OkHttpClient()
+//        val request = Request.Builder().url(url).build()
+//        client.newCall(request).enqueue(object : Callback {
+//            override fun onFailure(call: Call, e: IOException) {
+//                Log.e(TAG, e.toString())
+//            }
+//
+//            override fun onResponse(call: Call, response: Response) {
+//                var responseStr = response.body!!.string()
+//                val responseObj = JSONObject(responseStr)
+//                val status = responseObj.getInt("status")
+//                val res = responseObj.getJSONObject("response")
+//
+//                if (status == 1) {
+//                    Log.i(TAG, "responseStr1: " + responseStr)
+//                    Log.i("onResponse", res.toString())
+//                    val text = res.getJSONObject("message").getString("text")
+//                    val voice = res.getJSONObject("message").getString("voice")
+//                    Log.i("onResponse voice: ", voice)
+//                    setResponseText(text)
+//                    voiceQueue.add(voice)
+//                }
+//                response.body!!.close()
+//            }
+//        })
+//    }
+
     private fun pullResponse() {
-        var url = "$server_url/response/$uid"
+        var url = "$server_url/response/v2/$uid"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {
@@ -337,20 +372,38 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                var responseStr = response.body!!.string()
-                val responseObj = JSONObject(responseStr)
-                val status = responseObj.getInt("status")
-                val res = responseObj.getJSONObject("response")
+                val status = response.headers["status"]
 
-                if (status == 1) {
-                    Log.i("onResponse", res.toString())
-                    val text = res.getJSONObject("message").getString("text")
-                    val voice = res.getJSONObject("message").getString("voice")
-                    setResponseText(text)
-                    voiceQueue.add(voice)
-
-
+                if (status == null) {
+                    Log.i(TAG, "status is null")
+                    response.headers.forEach {
+                        Log.i(TAG, it.toString())
+                    }
+                    response.body!!.close()
+                    return
                 }
+
+                if (status == "0") {
+                    response.body!!.close()
+                    return
+                }
+
+                val text = response.headers["response"]
+                if (text != null) {
+                    setResponseText(text)
+                }
+
+                val strBuffer = StringBuffer()
+                val input = response.body!!.byteStream()
+                val buffer = ByteArray(1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count == -1) {
+                        break
+                    }
+                    strBuffer.append(String(buffer, 0, count))
+                }
+                voiceQueue.add(strBuffer)
                 response.body!!.close()
             }
         })
