@@ -32,7 +32,7 @@ class CameraXService internal constructor(
     var queue: Queue<ByteArray>, private val activity: AppCompatActivity
 ) {
     private val TAG: String = ImageCapturing::class.java.simpleName
-    private val rotate = 180 // TODO
+    private val rotate = 0 // TODO
 
     private var imageSize = Size(480, 640)
 
