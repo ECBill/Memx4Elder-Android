@@ -1,10 +1,14 @@
 package life.memx.chat.services
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.Size
+import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -17,6 +21,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import com.google.common.util.concurrent.ListenableFuture
 import life.memx.chat.R
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Queue
 import java.util.concurrent.ExecutorService
@@ -27,6 +32,7 @@ class CameraXService internal constructor(
     var queue: Queue<ByteArray>, private val activity: AppCompatActivity
 ) {
     private val TAG: String = ImageCapturing::class.java.simpleName
+    private val rotate = 180 // TODO
 
     private var imageSize = Size(480, 640)
 
@@ -83,13 +89,35 @@ class CameraXService internal constructor(
         }, ContextCompat.getMainExecutor(activity))
     }
 
-    fun setImageSize(w: Int, h: Int){
+    fun setImageSize(w: Int, h: Int) {
         imageSize = Size(w, h)
     }
 
     private fun uploadImage(file: File) {
-        val bytes = file.readBytes()
-        queue.add(bytes)
+        if (rotate != 0) {
+            val sourceBitmap = BitmapFactory.decodeFile(file.absolutePath)
+            val matrix = Matrix()
+            matrix.postRotate(rotate.toFloat())
+            val rotatedBitmap =
+                Bitmap.createBitmap(
+                    sourceBitmap,
+                    0,
+                    0,
+                    sourceBitmap.width,
+                    sourceBitmap.height,
+                    matrix,
+                    true
+                )
+
+            val out = ByteArrayOutputStream()
+            rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+
+            val bytes = out.toByteArray()
+            queue.add(bytes)
+        } else {
+            val bytes = file.readBytes()
+            queue.add(bytes)
+        }
         closeCamera()
     }
 
@@ -164,6 +192,8 @@ class CameraXService internal constructor(
         )
 
         mPreview?.setSurfaceProvider(previewView?.surfaceProvider)
+        previewView?.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+        previewView?.rotation = rotate.toFloat()
     }
 
 
@@ -177,6 +207,7 @@ class CameraXService internal constructor(
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)//低延迟低质量
             .setFlashMode(ImageCapture.FLASH_MODE_OFF)//闪光灯
             .setTargetResolution(imageSize) // 目标分辨率，实际输出尺寸大于等于这个尺寸
+//            .setTargetRotation(Surface.ROTATION_90)
             .build()
 
         // ImageAnalysis

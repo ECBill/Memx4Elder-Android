@@ -92,6 +92,10 @@ class MainActivity : AppCompatActivity() {
         deleteCache()
 
         uid = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
+        uid = sharedPreferences.getString("uid", uid).toString()    // TODO
+
+
         Log.i(TAG, "uid: $uid")
 
         if (verifyPermissions(this)) {
@@ -141,6 +145,10 @@ class MainActivity : AppCompatActivity() {
             if (text.isNotEmpty()) {
                 Log.d(TAG, "user text: $text")
                 uid = text
+                val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
+                val editor = sharedPreferences.edit()
+                editor.putString("uid", uid)
+                editor.commit()
                 Toast.makeText(applicationContext, "设置用户: $text", Toast.LENGTH_SHORT).show();
             } else {
                 Log.d(TAG, "user text is empty")
@@ -205,7 +213,7 @@ class MainActivity : AppCompatActivity() {
         registerServerSpinner()
         imageCapturer.startCapturing()
 
-        imageCapturer.setImageSize(720,960)
+        imageCapturer.setImageSize(640,480) // TODO
         audioRecorder.startRecording()
         pullResponseTask()
         Timer().schedule(object : TimerTask() {
