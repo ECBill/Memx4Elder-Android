@@ -66,8 +66,12 @@ class MainActivity : AppCompatActivity() {
     private var audioQueue: Queue<ByteArray> = LinkedList<ByteArray>()
     private var imageQueue: Queue<ByteArray> = LinkedList<ByteArray>()
 
-    //    private var voiceQueue: Queue<String> = LinkedList<String>()
-    private var voiceQueue: Queue<StringBuffer> = LinkedList<StringBuffer>()
+    private var voiceQueue: Queue<String> = LinkedList<String>()
+    //    private var voiceQueue: Queue<StringBuilder> = LinkedList<StringBuilder>()
+    //    private var voiceQueue: Queue<File> = LinkedList<File>()
+
+    @Volatile
+    private var audio: StringBuilder = StringBuilder()
 
     private var audioRecorder = AudioRecording(audioQueue)
 
@@ -319,8 +323,9 @@ class MainActivity : AppCompatActivity() {
                 audioRecorder.stopRecording()
                 val mediaPlayer = MediaPlayer()
                 try {
-//                    mediaPlayer.setDataSource(voiceQueue.remove())
-                    mediaPlayer.setDataSource(voiceQueue.remove().toString())
+                    mediaPlayer.setDataSource(voiceQueue.remove())
+//                    val audio = voiceQueue.remove()
+//                    mediaPlayer.setDataSource(audio)
                     mediaPlayer.prepare();
                     mediaPlayer.start()
                 } catch (ex: Exception) {
@@ -333,37 +338,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-//    private fun pullResponse() {
-//        var url = "$server_url/response/$uid"
-//        val client = OkHttpClient()
-//        val request = Request.Builder().url(url).build()
-//        client.newCall(request).enqueue(object : Callback {
-//            override fun onFailure(call: Call, e: IOException) {
-//                Log.e(TAG, e.toString())
-//            }
-//
-//            override fun onResponse(call: Call, response: Response) {
-//                var responseStr = response.body!!.string()
-//                val responseObj = JSONObject(responseStr)
-//                val status = responseObj.getInt("status")
-//                val res = responseObj.getJSONObject("response")
-//
-//                if (status == 1) {
-//                    Log.i(TAG, "responseStr1: " + responseStr)
-//                    Log.i("onResponse", res.toString())
-//                    val text = res.getJSONObject("message").getString("text")
-//                    val voice = res.getJSONObject("message").getString("voice")
-//                    Log.i("onResponse voice: ", voice)
-//                    setResponseText(text)
-//                    voiceQueue.add(voice)
-//                }
-//                response.body!!.close()
-//            }
-//        })
-//    }
-
     private fun pullResponse() {
-        var url = "$server_url/response/v2/$uid"
+        var url = "$server_url/response/$uid"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {
@@ -372,42 +348,120 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val status = response.headers["status"]
+                var responseStr = response.body!!.string()
+                val responseObj = JSONObject(responseStr)
+                val status = responseObj.getInt("status")
+                val res = responseObj.getJSONObject("response")
 
-                if (status == null) {
-                    Log.i(TAG, "status is null")
-                    response.headers.forEach {
-                        Log.i(TAG, it.toString())
-                    }
-                    response.body!!.close()
-                    return
-                }
-
-                if (status == "0") {
-                    response.body!!.close()
-                    return
-                }
-
-                val text = response.headers["response"]
-                if (text != null) {
+                if (status == 1) {
+                    Log.i(TAG, "responseStr1: " + responseStr)
+                    Log.i("onResponse", res.toString())
+                    val text = res.getJSONObject("message").getString("text")
+                    val voice = res.getJSONObject("message").getString("voice")
+                    Log.i("onResponse voice: ", voice)
                     setResponseText(text)
+                    voiceQueue.add(voice)
                 }
-
-                val strBuffer = StringBuffer()
-                val input = response.body!!.byteStream()
-                val buffer = ByteArray(1024)
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count == -1) {
-                        break
-                    }
-                    strBuffer.append(String(buffer, 0, count))
-                }
-                voiceQueue.add(strBuffer)
                 response.body!!.close()
             }
         })
     }
+
+//    private fun pullResponse() {
+//        var url = "$server_url/response/v2/$uid"
+//        val client = OkHttpClient()
+//        val request = Request.Builder().url(url).build()
+//        client.newCall(request).enqueue(object : Callback {
+//            override fun onFailure(call: Call, e: IOException) {
+//                Log.e(TAG, e.toString())
+//            }
+//
+//            override fun onResponse(call: Call, response: Response) {
+//                val status = response.headers["status"]
+//
+//                if (status == null) {
+//                    Log.i(TAG, "status is null")
+//                    response.headers.forEach {
+//                        Log.i(TAG, it.toString())
+//                    }
+//                    response.body!!.close()
+//                    return
+//                }
+//
+//                if (status == "0") {
+//                    response.body!!.close()
+//                    return
+//                }
+//
+//                val text = response.headers["response"]
+//                if (text != null) {
+//                    setResponseText(text)
+//                }
+//
+//                val strBuffer = StringBuilder()
+//                val input = response.body!!.byteStream()
+//                val buffer = ByteArray(1024)
+//                while (true) {
+//                    val count = input.read(buffer)
+//                    if (count == -1) {
+//                        break
+//                    }
+//                    strBuffer.append(String(buffer, 0, count))
+//                }
+//                voiceQueue.add(strBuffer)
+//                response.body!!.close()
+//            }
+//        })
+//    }
+
+//    private fun pullResponse() {
+//        var url = "$server_url/response/v3/$uid"
+//        val client = OkHttpClient()
+//        val request = Request.Builder().url(url).build()
+//        client.newCall(request).enqueue(object : Callback {
+//            override fun onFailure(call: Call, e: IOException) {
+//                Log.e(TAG, e.toString())
+//            }
+//
+//            override fun onResponse(call: Call, response: Response) {
+//                val status = response.headers["status"]
+//
+//                if (status == null) {
+//                    Log.i(TAG, "status is null")
+//                    response.headers.forEach {
+//                        Log.i(TAG, it.toString())
+//                    }
+//                    response.body!!.close()
+//                    return
+//                }
+//
+//                if (status == "0") {
+//                    response.body!!.close()
+//                    return
+//                }
+//
+//                val text = response.headers["response"]
+//                if (text != null) {
+//                    setResponseText(text)
+//                }
+//
+//                val file: File = File.createTempFile("audio", ".wav")
+//                val input = response.body!!.byteStream()
+//                val output = FileOutputStream(file)
+//                val buffer = ByteArray(1024)
+//                while (true) {
+//                    val count = input.read(buffer)
+//                    if (count == -1) {
+//                        break
+//                    }
+//                    output.write(buffer, 0, count)
+//                }
+//                voiceQueue.add(file.absolutePath)
+//
+//                response.body!!.close()
+//            }
+//        })
+//    }
 
     fun deleteCache() {
         try {
