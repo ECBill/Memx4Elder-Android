@@ -75,17 +75,22 @@
             android:id="@+id/upload_user_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="提交" />
+            android:text="设置ID" />
 
         <androidx.camera.view.PreviewView
             android:id="@+id/previewView"
             android:layout_width="118dp"
             android:layout_height="133dp" />
+
         <TextView
             android:id="@+id/response_text"
-            android:layout_width="290dp"
-            android:layout_height="304dp"
-            android:hint="Response" />
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp"
+            android:layout_marginBottom="10dp"
+            android:hint="Response"
+            android:isScrollContainer="true" />
     </LinearLayout>
 
 
