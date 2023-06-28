@@ -12,7 +12,7 @@ import java.util.Queue
 class AudioRecording internal constructor(var queue: Queue<ByteArray>) {
     private val TAG: String = AudioRecording::class.java.simpleName
 
-    private val audioSource: Int = MediaRecorder.AudioSource.MIC
+    private val audioSource: Int = MediaRecorder.AudioSource.VOICE_COMMUNICATION
     private val sampleRateInHz: Int = 16000
     private val channelConfig: Int = AudioFormat.CHANNEL_IN_MONO
     private val audioFormat: Int = AudioFormat.ENCODING_PCM_16BIT
