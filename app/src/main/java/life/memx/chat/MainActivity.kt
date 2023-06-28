@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
 
     private var uid: String = ""
     private var server_url: String = "http://10.176.34.117:9527"
+    private var is_first = true
 
     private val PERMISSIONS_REQUIRED: Array<String> = arrayOf<String>(
         Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -347,7 +348,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pullResponse() {
-        var url = "$server_url/response/$uid"
+        var url = "$server_url/response/$uid?is_first=$is_first"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {
@@ -372,6 +373,7 @@ class MainActivity : AppCompatActivity() {
                         voiceQueue.clear()
                     }
                     voiceQueue.add(voice)
+                    is_first = false
                 }
                 response.body!!.close()
             }
