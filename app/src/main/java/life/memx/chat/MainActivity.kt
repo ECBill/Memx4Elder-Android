@@ -328,7 +328,7 @@ class MainActivity : AppCompatActivity() {
                 if (voiceQueue.isEmpty()) {
                     continue
                 }
-                audioRecorder.stopRecording()
+//                audioRecorder.stopRecording()
                 val mediaPlayer = MediaPlayer()
                 try {
                     mediaPlayer.setDataSource(voiceQueue.remove())
@@ -341,7 +341,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 while (mediaPlayer.isPlaying) {
                 }
-                audioRecorder.startRecording()
+//                audioRecorder.startRecording()
             }
         }
     }
@@ -368,6 +368,9 @@ class MainActivity : AppCompatActivity() {
                     val voice = res.getJSONObject("message").getString("voice")
                     Log.i("onResponse voice: ", voice)
                     setResponseText(text)
+                    if (text == "[INTERRUPT]"){
+                        voiceQueue.clear()
+                    }
                     voiceQueue.add(voice)
                 }
                 response.body!!.close()
