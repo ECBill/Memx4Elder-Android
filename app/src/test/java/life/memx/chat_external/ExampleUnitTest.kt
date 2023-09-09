@@ -1,4 +1,4 @@
-package life.memx.chat
+package life.memx.chat_external
 
 import org.junit.Test
 

@@ -1,97 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!--    <TextView-->
-    <!--        android:layout_width="wrap_content"-->
-    <!--        android:layout_height="wrap_content"-->
-    <!--        android:text="EgoChat"-->
-    <!--        app:layout_constraintBottom_toBottomOf="parent"-->
-    <!--        app:layout_constraintEnd_toEndOf="parent"-->
-    <!--        app:layout_constraintStart_toStartOf="parent"-->
-    <!--        app:layout_constraintTop_toTopOf="parent" />-->
+    <data>
 
-    <!--    <ImageView-->
-    <!--        android:id="@+id/camere_iv"-->
-    <!--        android:layout_width="match_parent"-->
-    <!--        android:layout_height="200dp"-->
-    <!--        tools:ignore="MissingConstraints"-->
-    <!--        tools:layout_editor_absoluteX="0dp"-->
-    <!--        tools:layout_editor_absoluteY="70dp" />-->
+    </data>
 
-    <!--    <FrameLayout-->
-    <!--        android:id="@+id/camera_preview"-->
-    <!--        android:layout_width="fill_parent"-->
-    <!--        android:layout_height="fill_parent"-->
-    <!--        android:layout_weight="1"-->
-    <!--        tools:ignore="MissingConstraints"-->
-    <!--        tools:layout_editor_absoluteX="16dp"-->
-    <!--        tools:layout_editor_absoluteY="243dp" />-->
-
-
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center_horizontal"
-        android:orientation="vertical">
+        tools:context=".MainActivity">
+
+        <!--    <TextView-->
+        <!--        android:layout_width="wrap_content"-->
+        <!--        android:layout_height="wrap_content"-->
+        <!--        android:text="EgoChat"-->
+        <!--        app:layout_constraintBottom_toBottomOf="parent"-->
+        <!--        app:layout_constraintEnd_toEndOf="parent"-->
+        <!--        app:layout_constraintStart_toStartOf="parent"-->
+        <!--        app:layout_constraintTop_toTopOf="parent" />-->
+
+        <!--    <ImageView-->
+        <!--        android:id="@+id/camere_iv"-->
+        <!--        android:layout_width="match_parent"-->
+        <!--        android:layout_height="200dp"-->
+        <!--        tools:ignore="MissingConstraints"-->
+        <!--        tools:layout_editor_absoluteX="0dp"-->
+        <!--        tools:layout_editor_absoluteY="70dp" />-->
+
+        <!--    <FrameLayout-->
+        <!--        android:id="@+id/camera_preview"-->
+        <!--        android:layout_width="fill_parent"-->
+        <!--        android:layout_height="fill_parent"-->
+        <!--        android:layout_weight="1"-->
+        <!--        tools:ignore="MissingConstraints"-->
+        <!--        tools:layout_editor_absoluteX="16dp"-->
+        <!--        tools:layout_editor_absoluteY="243dp" />-->
 
 
-        <Switch
-            android:id="@+id/camera_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="相机"
-            android:textOff="关闭"
-            android:textOn="开启" />
-
-        <Switch
-            android:id="@+id/audio_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="语音"
-            android:textOff="关闭"
-            android:textOn="开启" />
-
-        <EditText
-            android:id="@+id/user_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:hint="用户ID"
-            android:inputType="text" />
-
-        <Spinner
-            android:id="@+id/server_spinner"
-            android:layout_width="230dp"
-            android:layout_height="34dp"
-            android:entries="@array/server_ips" />
-
-        <Button
-            android:id="@+id/upload_user_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="设置ID" />
-
-        <androidx.camera.view.PreviewView
-            android:id="@+id/previewView"
-            android:layout_width="118dp"
-            android:layout_height="133dp" />
-
-        <TextView
-            android:id="@+id/response_text"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginLeft="15dp"
-            android:layout_marginRight="15dp"
-            android:layout_marginBottom="10dp"
-            android:hint="Response"
-            android:isScrollContainer="true" />
-    </LinearLayout>
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
 
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+            <Switch
+                android:id="@+id/camera_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="相机"
+                android:textOff="关闭"
+                android:textOn="开启" />
+
+            <Switch
+                android:id="@+id/audio_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="语音"
+                android:textOff="关闭"
+                android:textOn="开启" />
+
+            <EditText
+                android:id="@+id/user_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:hint="用户ID"
+                android:inputType="text" />
+
+            <Spinner
+                android:id="@+id/server_spinner"
+                android:layout_width="230dp"
+                android:layout_height="34dp"
+                android:entries="@array/server_ips" />
+
+            <Button
+                android:id="@+id/upload_user_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="设置ID" />
+
+<!--            <androidx.camera.view.PreviewView-->
+<!--                android:id="@+id/previewView"-->
+<!--                android:layout_width="118dp"-->
+<!--                android:layout_height="133dp" />-->
+
+            <FrameLayout
+                android:id="@+id/fragment_container"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.0"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintVertical_bias="0.0" />
+
+            <TextView
+                android:id="@+id/response_text"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="15dp"
+                android:layout_marginRight="15dp"
+                android:layout_marginBottom="10dp"
+                android:hint="Response"
+                android:isScrollContainer="true" />
+
+        </LinearLayout>
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>
