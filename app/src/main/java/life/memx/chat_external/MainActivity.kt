@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import life.memx.chat_external.databinding.ActivityMainBinding
 import life.memx.chat_external.services.AudioRecording
 import life.memx.chat_external.services.ExCamFragment
+import life.memx.chat_external.services.MultiCameraFragment
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -57,6 +58,7 @@ class MainActivity : AppCompatActivity() {
 
     private var uid: String = ""
     private var server_url: String = "http://10.176.34.117:9527"
+    private var eye_server_url: String = "https://example.com"  // TODO
     private var is_first = true
 
     private val PERMISSIONS_REQUIRED: Array<String> = arrayOf<String>(
@@ -73,10 +75,12 @@ class MainActivity : AppCompatActivity() {
         private const val REQUEST_CAMERA = 0
         private const val REQUEST_STORAGE = 1
     }
+
     private var mWakeLock: PowerManager.WakeLock? = null
 
     private var audioQueue: Queue<ByteArray> = LinkedList<ByteArray>()
     private var imageQueue: Queue<ByteArray> = LinkedList<ByteArray>()
+    private var eyeImageQueue: Queue<ByteArray> = LinkedList<ByteArray>()
 
     private var voiceQueue: Queue<String> = LinkedList<String>()
     //    private var voiceQueue: Queue<StringBuilder> = LinkedList<StringBuilder>()
@@ -89,7 +93,9 @@ class MainActivity : AppCompatActivity() {
 
     //    private var imageCapturer = ImageCapturing(imageQueue, this)
     //    private var imageCapturer = CameraXService(imageQueue, this)
-    private var imageCapturer = ExCamFragment(imageQueue)
+//    private var imageCapturer = ExCamFragment(imageQueue)
+    private var imageCapturer = MultiCameraFragment(imageQueue, eyeImageQueue)
+
 
     private var cameraSwitch: Switch? = null
     private var audioSwitch: Switch? = null
@@ -121,9 +127,7 @@ class MainActivity : AppCompatActivity() {
 
         Log.i(TAG, "uid: $uid")
 
-        if (verifyPermissions(this)) {
-            run()
-        } else {
+        if (!verifyPermissions(this)) {
             ActivityCompat.requestPermissions(
                 this, PERMISSIONS_REQUIRED, PERMISSIONS_REQUEST_CODE
             )
@@ -260,6 +264,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         mWakeLock = Utils.wakeLock(this)
+        run()
     }
 
     override fun onStop() {
@@ -339,6 +344,21 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun getEyeImage(): File? {
+        try {
+            var data = eyeImageQueue.poll()
+            if (data != null) {
+                var f = Files.createTempFile("image", ".jpeg")
+                Files.write(f, data)
+                return f.toFile()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, e.toString())
+        }
+        return null
+    }
+
     private fun getGaze() {
 //        do {
 //            val voice = voiceQueue.poll()
@@ -354,11 +374,11 @@ class MainActivity : AppCompatActivity() {
 
         requestBody.addFormDataPart("data", data.toString())
         if (voiceFile != null) {
-            val body = voiceFile.asRequestBody("image/*".toMediaTypeOrNull())
+            val body = voiceFile.asRequestBody("audio/*".toMediaTypeOrNull())
             requestBody.addFormDataPart("voice_file", voiceFile.name, body)
         }
         if (sceneFile != null) {
-            val body = sceneFile.asRequestBody("audio/*".toMediaTypeOrNull())
+            val body = sceneFile.asRequestBody("image/*".toMediaTypeOrNull())
             requestBody.addFormDataPart("scene_file", sceneFile.name, body)
         }
 
@@ -373,7 +393,40 @@ class MainActivity : AppCompatActivity() {
             }
         })
     }
+    private fun pushEyeImageTask() {
+        Timer().schedule(object : TimerTask() {
+            @RequiresApi(Build.VERSION_CODES.O)
+            override fun run() {
+                val data = JSONObject()
+                data.put("uid", uid)
+                data.put("timestamp", System.currentTimeMillis())
+                var mImageFile = getEyeImage()
 
+
+                val client = OkHttpClient()
+                val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
+
+                requestBody.addFormDataPart("data", data.toString())
+
+                if (mImageFile != null) {
+                    val body = mImageFile.asRequestBody("image/*".toMediaTypeOrNull())
+                    requestBody.addFormDataPart("eye_file", mImageFile.name, body)
+                }
+
+                val request = Request.Builder().url(eye_server_url).post(requestBody.build()).build()
+                client.newCall(request).enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        Log.e(TAG, e.toString())
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        response.body!!.close()
+                    }
+                })
+
+            }
+        }, 0, 1000)
+    }
     private fun pullResponseTask() {
         Timer().schedule(object : TimerTask() {
             override fun run() {

@@ -43,11 +43,11 @@ class ExCamFragment internal constructor(
 ) : CameraFragment(), View.OnClickListener, CaptureMediaView.OnViewClickListener {
     private var mMoreMenu: PopupWindow? = null
 
-    private var needCapturing = true
 
     private var mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC
 
     private lateinit var mViewBinding: FragmentDemoBinding
+    private var needCapturing = true
     private lateinit var cacheDir: String
     private val rotate = 90 // TODO
 
