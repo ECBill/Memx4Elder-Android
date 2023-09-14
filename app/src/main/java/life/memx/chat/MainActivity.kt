@@ -36,13 +36,18 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedReader
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.InputStreamReader
 import java.nio.file.Files
 import java.util.LinkedList
 import java.util.Queue
 import java.util.Timer
 import java.util.TimerTask
+import java.util.concurrent.TimeUnit
 
 
 class MainActivity : AppCompatActivity() {
@@ -223,7 +228,7 @@ class MainActivity : AppCompatActivity() {
         registerServerSpinner()
         imageCapturer.startCapturing()
 
-        imageCapturer.setImageSize(640,480) // TODO
+        imageCapturer.setImageSize(640, 480) // TODO
         audioRecorder.startRecording()
         pullResponseTask()
         Timer().schedule(object : TimerTask() {
@@ -319,11 +324,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pullResponseTask() {
-        Timer().schedule(object : TimerTask() {
-            override fun run() {
-                pullResponse()
+        try {
+            pullResponse()
+        } catch (e: Exception) {
+            Log.e(TAG, e.toString())
+        }
+        GlobalScope.launch {
+            while (true) {
+                try {
+                    pullStreamResponse()
+                } catch (e: Exception) {
+                    Log.e(TAG, "pullStreamResponse: $e")
+                }finally {
+                    TimeUnit.SECONDS.sleep(1)
+                }
             }
-        }, 0, 500)
+        }
+//        Timer().schedule(object : TimerTask() {
+//            override fun run() {
+//                pullResponse()
+//            }
+//        }, 0, 500)
         GlobalScope.launch {
             while (true) {
                 if (voiceQueue.isEmpty()) {
@@ -369,7 +390,7 @@ class MainActivity : AppCompatActivity() {
                     val voice = res.getJSONObject("message").getString("voice")
                     Log.i("onResponse voice: ", voice)
                     setResponseText(text)
-                    if (text == "[INTERRUPT]"){
+                    if (text == "[INTERRUPT]") {
                         voiceQueue.clear()
                     }
                     voiceQueue.add(voice)
@@ -378,6 +399,41 @@ class MainActivity : AppCompatActivity() {
                 response.body!!.close()
             }
         })
+    }
+
+    private fun pullStreamResponse() {
+        val url = "$server_url/response/stream/$uid"
+        val client = OkHttpClient.Builder().readTimeout(86400, TimeUnit.SECONDS).build()
+        val request = Request.Builder().url(url).build()
+        val response = client.newCall(request).execute()
+
+        val input = response.body!!.byteStream()
+        val buffer = BufferedReader(InputStreamReader(input))
+        try {
+            while (true) {
+                Log.i(TAG, "pullStreamResponse: " + url)
+                val strBuffer = buffer.readLine() ?: continue
+                Log.i(TAG, "pullStreamResponse: " + strBuffer)
+                val responseObj = JSONObject(strBuffer)
+                val status = responseObj.getInt("status")
+                val res = responseObj.getJSONObject("response")
+                if (status == 1) {
+                    Log.i("onResponse", res.toString())
+                    val text = res.getJSONObject("message").getString("text")
+                    val voice = res.getJSONObject("message").getString("voice")
+                    Log.i("onResponse voice: ", voice)
+                    setResponseText(text)
+                    if (text == "[INTERRUPT]") {
+                        voiceQueue.clear()
+                    }
+                    voiceQueue.add(voice)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "pullStreamResponse: $e")
+        } finally {
+            response.body!!.close()
+        }
     }
 
 //    private fun pullResponse() {
