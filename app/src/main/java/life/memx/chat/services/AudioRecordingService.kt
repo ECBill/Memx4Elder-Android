@@ -38,9 +38,9 @@ class AudioRecording internal constructor(
         try {
             audioRecorder!!.startRecording()
         } catch (e: Exception) {
-            Log.e(TAG, "startRecording error: " + e.printStackTrace())
+            Log.e(TAG, "startRecording error: $e")
             Toast.makeText(
-                activity, "startRecording error: " + e.printStackTrace(), Toast.LENGTH_LONG
+                activity, "startRecording error: $e", Toast.LENGTH_LONG
             ).show();
             return
         }
@@ -58,9 +58,9 @@ class AudioRecording internal constructor(
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Recording error: " + e.printStackTrace())
+                Log.e(TAG, "Recording error: $e")
                 Toast.makeText(
-                    activity, "Recording error: " + e.printStackTrace(), Toast.LENGTH_LONG
+                    activity, "Recording error: $e", Toast.LENGTH_LONG
                 ).show();
             }
         }).start()
@@ -72,9 +72,9 @@ class AudioRecording internal constructor(
             isRecording = false
             audioRecorder?.release()
         } catch (e: Exception) {
-            Log.e(TAG, "stopRecording error: " + e.printStackTrace())
+            Log.e(TAG, "stopRecording error: $e")
             Toast.makeText(
-                activity, "stopRecording error: " + e.printStackTrace(), Toast.LENGTH_LONG
+                activity, "stopRecording error: $e", Toast.LENGTH_LONG
             ).show();
         }
     }

@@ -5,9 +5,11 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.icu.lang.UCharacter.GraphemeClusterBreak.L
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.View
@@ -128,19 +130,19 @@ class MainActivity : AppCompatActivity() {
                     imageCapturer.setNeedCapturing(true)
                     Log.d(TAG, "setNeedCapturing: true")
                     Toast.makeText(
-                        applicationContext, "打开摄像头", Toast.LENGTH_SHORT
+                        applicationContext, "open camera", Toast.LENGTH_SHORT
                     ).show();
                 } else {
                     imageCapturer.setNeedCapturing(false)
                     Log.d(TAG, "setNeedCapturing: false")
                     Toast.makeText(
-                        applicationContext, "关闭摄像头", Toast.LENGTH_SHORT
+                        applicationContext, "close camera", Toast.LENGTH_SHORT
                     ).show();
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "set camera error: " + e.printStackTrace())
+                Log.e(TAG, "set camera error: $e")
                 Toast.makeText(
-                    applicationContext, "操作摄像头失败: " + e.printStackTrace(), Toast.LENGTH_LONG
+                    applicationContext, "set camera error: $e", Toast.LENGTH_LONG
                 ).show();
             }
         }
@@ -156,20 +158,20 @@ class MainActivity : AppCompatActivity() {
                     audioRecorder.startRecording()
                     Log.d(TAG, "setNeedRecording: true")
                     Toast.makeText(
-                        applicationContext, "打开录音", Toast.LENGTH_SHORT
+                        applicationContext, "open audio", Toast.LENGTH_SHORT
                     ).show();
                 } else {
                     audioRecorder.setNeedRecording(false)
                     audioRecorder.stopRecording()
                     Log.d(TAG, "setNeedRecording: false")
                     Toast.makeText(
-                        applicationContext, "关闭录音", Toast.LENGTH_SHORT
+                        applicationContext, "close audio", Toast.LENGTH_SHORT
                     ).show();
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "set audio error: " + e.printStackTrace())
+                Log.e(TAG, "set audio error: $e")
                 Toast.makeText(
-                    applicationContext, "操作录音失败: " + e.printStackTrace(), Toast.LENGTH_LONG
+                    applicationContext, "set audio error: $e", Toast.LENGTH_LONG
                 ).show();
             }
         }
@@ -198,9 +200,9 @@ class MainActivity : AppCompatActivity() {
                     ).show();
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "set user text error: " + e.printStackTrace())
+                Log.e(TAG, "set user text error: $e")
                 Toast.makeText(
-                    applicationContext, "设置用户失败: " + e.printStackTrace(), Toast.LENGTH_LONG
+                    applicationContext, "set user text error: $e", Toast.LENGTH_LONG
                 ).show();
             }
         }
@@ -216,9 +218,9 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT)
                         .show();
                 } catch (e: Exception) {
-                    Log.e(TAG, "set url error: " + e.printStackTrace())
+                    Log.e(TAG, "set url error: $e")
                     Toast.makeText(
-                        applicationContext, "设置url失败: " + e.printStackTrace(), Toast.LENGTH_LONG
+                        applicationContext, "set url error: $e", Toast.LENGTH_LONG
                     ).show();
                 }
             }
@@ -306,10 +308,12 @@ class MainActivity : AppCompatActivity() {
                 "$server_url/heartbeat", data, mAudioFile, mImageFile
             )
         } catch (e: Exception) {
-            Log.e(TAG, "pushData error: " + e.printStackTrace())
+            Log.e(TAG, "pushData error: $e")
+            Looper.prepare()
             Toast.makeText(
-                applicationContext, "pushData error: " + e.printStackTrace(), Toast.LENGTH_LONG
+                applicationContext, "pushData error: $e", Toast.LENGTH_LONG
             ).show();
+            Looper.loop()
         }
     }
 
@@ -323,10 +327,12 @@ class MainActivity : AppCompatActivity() {
                 return f.toFile()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "getAudio error: " + e.printStackTrace())
+            Log.e(TAG, "getAudio error: $e")
+            Looper.prepare()
             Toast.makeText(
-                applicationContext, "getAudio error: " + e.printStackTrace(), Toast.LENGTH_LONG
+                applicationContext, "getAudio error: $e", Toast.LENGTH_LONG
             ).show();
+            Looper.loop()
         }
         return null
     }
@@ -341,10 +347,12 @@ class MainActivity : AppCompatActivity() {
                 return f.toFile()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "getImage error: " + e.printStackTrace())
+            Log.e(TAG, "getImage error: $e")
+            Looper.prepare()
             Toast.makeText(
-                applicationContext, "getImage error: " + e.printStackTrace(), Toast.LENGTH_LONG
+                applicationContext, "getImage error: $e", Toast.LENGTH_LONG
             ).show();
+            Looper.loop()
         }
         return null
     }
@@ -388,9 +396,9 @@ class MainActivity : AppCompatActivity() {
         try {
             pullResponse()
         } catch (e: Exception) {
-            Log.e(TAG, "pullResponse error: " + e.printStackTrace())
+            Log.e(TAG, "pullResponse error: $e")
             Toast.makeText(
-                applicationContext, "pullResponse error: " + e.printStackTrace(), Toast.LENGTH_LONG
+                applicationContext, "pullResponse error: $e", Toast.LENGTH_LONG
             ).show();
         }
         GlobalScope.launch {
@@ -398,12 +406,14 @@ class MainActivity : AppCompatActivity() {
                 try {
                     pullStreamResponse()
                 } catch (e: Exception) {
-                    Log.e(TAG, "pullStreamResponse: $e")
+                    Log.e(TAG, "pullStreamResponse thread: $e")
+                    Looper.prepare()
                     Toast.makeText(
                         applicationContext,
-                        "pullStreamResponse error: " + e.printStackTrace(),
+                        "pullStreamResponse thread error: $e",
                         Toast.LENGTH_LONG
                     ).show();
+                    Looper.loop()
                 } finally {
                     withContext(Dispatchers.IO) {
                         TimeUnit.SECONDS.sleep(1)
@@ -433,12 +443,14 @@ class MainActivity : AppCompatActivity() {
                     }
 //                audioRecorder.startRecording()
                 } catch (e: Exception) {
-                    Log.e(TAG, "playback error: " + e.printStackTrace())
+                    Log.e(TAG, "playback error: $e")
+                    Looper.prepare()
                     Toast.makeText(
                         applicationContext,
-                        "playback error: " + e.printStackTrace(),
+                        "playback error: $e",
                         Toast.LENGTH_LONG
                     ).show();
+                    Looper.loop()
                 } finally {
                     withContext(Dispatchers.IO) {
                         TimeUnit.SECONDS.sleep(1)
@@ -454,7 +466,7 @@ class MainActivity : AppCompatActivity() {
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "pullResponse error: " + e.printStackTrace())
+                Log.e(TAG, "pullResponse error: $e")
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -483,7 +495,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun pullStreamResponse() {
         val url = "$server_url/response/stream/$uid"
-        val client = OkHttpClient.Builder().readTimeout(86400, TimeUnit.SECONDS).build()
+        val client = OkHttpClient.Builder().readTimeout(604800, TimeUnit.SECONDS).build()
         val request = Request.Builder().url(url).build()
         val response = client.newCall(request).execute()
 
@@ -510,14 +522,13 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "pullStreamResponse error: " + e.printStackTrace())
-            Toast.makeText(
-                applicationContext,
-                "pullStreamResponse error: " + e.printStackTrace(),
-                Toast.LENGTH_LONG
-            ).show();
-        } finally {
             response.body!!.close()
+            Log.e(TAG, "pullStreamResponse error: $e")
+            Looper.prepare()
+            Toast.makeText(
+                applicationContext, "pullStreamResponse error: $e", Toast.LENGTH_LONG
+            ).show();
+            Looper.loop()
         }
     }
 
@@ -622,9 +633,9 @@ class MainActivity : AppCompatActivity() {
             val dir = this.cacheDir
             deleteDir(dir)
         } catch (e: java.lang.Exception) {
-            Log.e(TAG, "deleteCache error: " + e.printStackTrace())
+            Log.e(TAG, "deleteCache error: $e")
             Toast.makeText(
-                applicationContext, "deleteCache error: " + e.printStackTrace(), Toast.LENGTH_LONG
+                applicationContext, "deleteCache error: $e", Toast.LENGTH_LONG
             ).show();
         }
     }

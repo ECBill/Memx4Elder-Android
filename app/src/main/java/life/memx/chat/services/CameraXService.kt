@@ -67,10 +67,10 @@ class CameraXService internal constructor(
                     }
                     openCameraThenShoot()
                 } catch (e: Exception) {
-                    Log.e(TAG, "openCameraThenShoot error: " + e.printStackTrace())
+                    Log.e(TAG, "openCameraThenShoot error: $e")
                     Toast.makeText(
                         activity,
-                        "openCameraThenShoot error: " + e.printStackTrace(),
+                        "openCameraThenShoot error: $e",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -176,10 +176,10 @@ class CameraXService internal constructor(
                 cameraExecutor.shutdown()
                 processCameraProvider.unbindAll()
             } catch (e: Exception) {
-                Log.e(TAG, "closeCamera error: " + e.printStackTrace())
+                Log.e(TAG, "closeCamera error: $e")
                 Toast.makeText(
                     activity,
-                    "closeCamera error: " + e.printStackTrace(),
+                    "closeCamera error: $e",
                     Toast.LENGTH_LONG
                 ).show()
             }
