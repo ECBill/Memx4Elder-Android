@@ -5,7 +5,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.pm.PackageManager
-import android.icu.lang.UCharacter.GraphemeClusterBreak.L
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
@@ -57,7 +56,9 @@ class MainActivity : AppCompatActivity() {
     private val TAG: String = MainActivity::class.java.simpleName
 
     private var uid: String = ""
-    private var server_url: String = "http://10.176.34.117:9527"
+    private var server_url: String = "https://gate.luzy.top"
+    //    private var server_url: String = "http://10.176.34.117:9527"
+
     private var is_first = true
 
     private val PERMISSIONS_REQUIRED: Array<String> = arrayOf<String>(
@@ -407,14 +408,14 @@ class MainActivity : AppCompatActivity() {
                     pullStreamResponse()
                 } catch (e: Exception) {
                     Log.e(TAG, "pullStreamResponse thread: $e")
-                    Looper.prepare()
-                    Toast.makeText(
-                        applicationContext,
-                        "pullStreamResponse thread error: $e",
-                        Toast.LENGTH_LONG
-                    ).show();
-                    Looper.loop()
-                } finally {
+//                    Looper.prepare()
+//                    Toast.makeText(
+//                        applicationContext,
+//                        "pullStreamResponse thread error: $e",
+//                        Toast.LENGTH_LONG
+//                    ).show();
+//                    Looper.loop()
+                }finally {
                     withContext(Dispatchers.IO) {
                         TimeUnit.SECONDS.sleep(1)
                     }
@@ -495,7 +496,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun pullStreamResponse() {
         val url = "$server_url/response/stream/$uid"
-        val client = OkHttpClient.Builder().readTimeout(604800, TimeUnit.SECONDS).build()
+        Log.i(TAG, "pullStreamResponse start: $url")
+        val client = OkHttpClient.Builder().readTimeout(604800, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true).build()
         val request = Request.Builder().url(url).build()
         val response = client.newCall(request).execute()
 
@@ -504,7 +508,7 @@ class MainActivity : AppCompatActivity() {
         try {
             while (true) {
                 Log.i(TAG, "pullStreamResponse: $url")
-                val strBuffer = buffer.readLine() ?: continue
+                val strBuffer = buffer.readLine() ?: break
                 Log.i(TAG, "pullStreamResponse: $strBuffer")
                 val responseObj = JSONObject(strBuffer)
                 val status = responseObj.getInt("status")
@@ -524,11 +528,11 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             response.body!!.close()
             Log.e(TAG, "pullStreamResponse error: $e")
-            Looper.prepare()
-            Toast.makeText(
-                applicationContext, "pullStreamResponse error: $e", Toast.LENGTH_LONG
-            ).show();
-            Looper.loop()
+//            Looper.prepare()
+//            Toast.makeText(
+//                applicationContext, "pullStreamResponse error: $e", Toast.LENGTH_LONG
+//            ).show();
+//            Looper.loop()
         }
     }
 
