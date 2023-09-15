@@ -59,8 +59,8 @@ class MainActivity : AppCompatActivity() {
     private var uid: String = ""
 
     //    private var server_url: String = "https://gate.luzy.top"
-    private var server_url: String = "http://10.176.34.117:9527"
-//    private var server_url: String = "http://150.158.82.234:7000"
+//    private var server_url: String = "http://10.176.34.117:9527"
+    private var server_url: String = "http://150.158.82.234:7000"
 
     private var is_first = true
 
