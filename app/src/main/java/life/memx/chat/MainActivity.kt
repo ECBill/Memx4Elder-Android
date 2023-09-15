@@ -22,8 +22,10 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import life.memx.chat.services.AudioRecording
 import life.memx.chat.services.CameraXService
 import okhttp3.Call
@@ -38,9 +40,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
-import java.io.InputStream
 import java.io.InputStreamReader
 import java.nio.file.Files
 import java.util.LinkedList
@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
     @Volatile
     private var audio: StringBuilder = StringBuilder()
 
-    private var audioRecorder = AudioRecording(audioQueue)
+    private var audioRecorder = AudioRecording(audioQueue, this)
 
     //    private var imageCapturer = ImageCapturing(imageQueue, this)
     private var imageCapturer = CameraXService(imageQueue, this)
@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
 
         uid = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
         val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
-        uid = sharedPreferences.getString("uid", uid).toString()    // TODO
+        uid = sharedPreferences.getString("uid", uid).toString()
 
 
         Log.i(TAG, "uid: $uid")
@@ -123,12 +123,25 @@ class MainActivity : AppCompatActivity() {
     private fun registerCameraSwitch() {
         cameraSwitch = findViewById(R.id.camera_switch)
         cameraSwitch?.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                imageCapturer.setNeedCapturing(true)
-                Log.d(TAG, "setNeedCapturing: true")
-            } else {
-                imageCapturer.setNeedCapturing(false)
-                Log.d(TAG, "setNeedCapturing: false")
+            try {
+                if (isChecked) {
+                    imageCapturer.setNeedCapturing(true)
+                    Log.d(TAG, "setNeedCapturing: true")
+                    Toast.makeText(
+                        applicationContext, "打开摄像头", Toast.LENGTH_SHORT
+                    ).show();
+                } else {
+                    imageCapturer.setNeedCapturing(false)
+                    Log.d(TAG, "setNeedCapturing: false")
+                    Toast.makeText(
+                        applicationContext, "关闭摄像头", Toast.LENGTH_SHORT
+                    ).show();
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "set camera error: " + e.printStackTrace())
+                Toast.makeText(
+                    applicationContext, "操作摄像头失败: " + e.printStackTrace(), Toast.LENGTH_LONG
+                ).show();
             }
         }
     }
@@ -137,34 +150,58 @@ class MainActivity : AppCompatActivity() {
     private fun registerAudioSwitch() {
         audioSwitch = findViewById(R.id.audio_switch)
         audioSwitch?.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                audioRecorder.setNeedRecording(true)
-                audioRecorder.startRecording()
-                Log.d(TAG, "setNeedRecording: true")
-            } else {
-                audioRecorder.setNeedRecording(false)
-                audioRecorder.stopRecording()
-                Log.d(TAG, "setNeedRecording: false")
+            try {
+                if (isChecked) {
+                    audioRecorder.setNeedRecording(true)
+                    audioRecorder.startRecording()
+                    Log.d(TAG, "setNeedRecording: true")
+                    Toast.makeText(
+                        applicationContext, "打开录音", Toast.LENGTH_SHORT
+                    ).show();
+                } else {
+                    audioRecorder.setNeedRecording(false)
+                    audioRecorder.stopRecording()
+                    Log.d(TAG, "setNeedRecording: false")
+                    Toast.makeText(
+                        applicationContext, "关闭录音", Toast.LENGTH_SHORT
+                    ).show();
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "set audio error: " + e.printStackTrace())
+                Toast.makeText(
+                    applicationContext, "操作录音失败: " + e.printStackTrace(), Toast.LENGTH_LONG
+                ).show();
             }
         }
     }
 
-    private fun registerUsetText() {
+    private fun registerUserText() {
         userText = findViewById(R.id.user_text)
         userText?.setText(uid)
         userTextBtn = findViewById(R.id.upload_user_text)
         userTextBtn?.setOnClickListener {
-            val text = userText?.text.toString()
-            if (text.isNotEmpty()) {
-                Log.d(TAG, "user text: $text")
-                uid = text
-                val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
-                val editor = sharedPreferences.edit()
-                editor.putString("uid", uid)
-                editor.commit()
-                Toast.makeText(applicationContext, "设置用户: $text", Toast.LENGTH_SHORT).show();
-            } else {
-                Log.d(TAG, "user text is empty")
+            try {
+                val text = userText?.text.toString()
+                if (text.isNotEmpty()) {
+                    Log.d(TAG, "user text: $text")
+                    uid = text
+                    val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
+                    val editor = sharedPreferences.edit()
+                    editor.putString("uid", uid)
+                    editor.commit()
+                    Toast.makeText(applicationContext, "设置用户: $text", Toast.LENGTH_SHORT)
+                        .show();
+                } else {
+                    Log.d(TAG, "user text is empty")
+                    Toast.makeText(
+                        applicationContext, "用户不能设置为空", Toast.LENGTH_SHORT
+                    ).show();
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "set user text error: " + e.printStackTrace())
+                Toast.makeText(
+                    applicationContext, "设置用户失败: " + e.printStackTrace(), Toast.LENGTH_LONG
+                ).show();
             }
         }
     }
@@ -173,10 +210,17 @@ class MainActivity : AppCompatActivity() {
         serverSpinner = findViewById(R.id.server_spinner)
         serverSpinner?.setOnItemSelectedListener(object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                val server_ips = resources.getStringArray(R.array.server_ips)
-                server_url = server_ips[pos]
-                Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT)
-                    .show();
+                try {
+                    val server_ips = resources.getStringArray(R.array.server_ips)
+                    server_url = server_ips[pos]
+                    Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT)
+                        .show();
+                } catch (e: Exception) {
+                    Log.e(TAG, "set url error: " + e.printStackTrace())
+                    Toast.makeText(
+                        applicationContext, "设置url失败: " + e.printStackTrace(), Toast.LENGTH_LONG
+                    ).show();
+                }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -222,53 +266,67 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun run() {
-        registerUsetText()
+        registerUserText()
         registerCameraSwitch()
         registerAudioSwitch()
         registerServerSpinner()
-        imageCapturer.startCapturing()
 
-        imageCapturer.setImageSize(640, 480) // TODO
+        imageCapturer.startCapturing()
+        imageCapturer.setImageSize(640, 480) //TODO: set image size
         audioRecorder.startRecording()
+
         pullResponseTask()
+
         Timer().schedule(object : TimerTask() {
             @RequiresApi(Build.VERSION_CODES.O)
             override fun run() {
-                val gaze = JSONObject()
-                gaze.put("timestamp", System.currentTimeMillis())
-                gaze.put("confidence", 0)
-                gaze.put("norm_pos_x", 0.5)
-                gaze.put("norm_pos_y", 0.5)
-                gaze.put("diameter", 0)
-                val gazes = JSONArray()
-                gazes.put(gaze)
-                val data = JSONObject()
-                data.put("uid", uid)
-                data.put("gazes", gazes)
-                data.put("timestamp", System.currentTimeMillis())
-                var mAudioFile = getAudio()
-                var mImageFile = getImage()
-                uploadServer(
-                    "$server_url/heartbeat",
-                    data,
-                    mAudioFile,
-                    mImageFile
-                )
+                pushData()
             }
         }, 0, 1000)
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
+    private fun pushData() {
+        try {
+            val gaze = JSONObject()
+            gaze.put("timestamp", System.currentTimeMillis())
+            gaze.put("confidence", 0)
+            gaze.put("norm_pos_x", 0.5)
+            gaze.put("norm_pos_y", 0.5)
+            gaze.put("diameter", 0)
+            val gazes = JSONArray()
+            gazes.put(gaze)
+            val data = JSONObject()
+            data.put("uid", uid)
+            data.put("gazes", gazes)
+            data.put("timestamp", System.currentTimeMillis())
+            val mAudioFile = getAudio()
+            val mImageFile = getImage()
+            uploadServer(
+                "$server_url/heartbeat", data, mAudioFile, mImageFile
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "pushData error: " + e.printStackTrace())
+            Toast.makeText(
+                applicationContext, "pushData error: " + e.printStackTrace(), Toast.LENGTH_LONG
+            ).show();
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun getAudio(): File? {
         try {
-            var data = audioQueue.poll()
+            val data = audioQueue.poll()
             if (data != null) {
-                var f = Files.createTempFile("audio", ".pcm")
+                val f = Files.createTempFile("audio", ".pcm")
                 Files.write(f, data)
                 return f.toFile()
             }
         } catch (e: Exception) {
-            Log.e(TAG, e.toString())
+            Log.e(TAG, "getAudio error: " + e.printStackTrace())
+            Toast.makeText(
+                applicationContext, "getAudio error: " + e.printStackTrace(), Toast.LENGTH_LONG
+            ).show();
         }
         return null
     }
@@ -276,14 +334,17 @@ class MainActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     private fun getImage(): File? {
         try {
-            var data = imageQueue.poll()
+            val data = imageQueue.poll()
             if (data != null) {
-                var f = Files.createTempFile("image", ".jpeg")
+                val f = Files.createTempFile("image", ".jpeg")
                 Files.write(f, data)
                 return f.toFile()
             }
         } catch (e: Exception) {
-            Log.e(TAG, e.toString())
+            Log.e(TAG, "getImage error: " + e.printStackTrace())
+            Toast.makeText(
+                applicationContext, "getImage error: " + e.printStackTrace(), Toast.LENGTH_LONG
+            ).show();
         }
         return null
     }
@@ -327,7 +388,10 @@ class MainActivity : AppCompatActivity() {
         try {
             pullResponse()
         } catch (e: Exception) {
-            Log.e(TAG, e.toString())
+            Log.e(TAG, "pullResponse error: " + e.printStackTrace())
+            Toast.makeText(
+                applicationContext, "pullResponse error: " + e.printStackTrace(), Toast.LENGTH_LONG
+            ).show();
         }
         GlobalScope.launch {
             while (true) {
@@ -335,8 +399,15 @@ class MainActivity : AppCompatActivity() {
                     pullStreamResponse()
                 } catch (e: Exception) {
                     Log.e(TAG, "pullStreamResponse: $e")
-                }finally {
-                    TimeUnit.SECONDS.sleep(1)
+                    Toast.makeText(
+                        applicationContext,
+                        "pullStreamResponse error: " + e.printStackTrace(),
+                        Toast.LENGTH_LONG
+                    ).show();
+                } finally {
+                    withContext(Dispatchers.IO) {
+                        TimeUnit.SECONDS.sleep(1)
+                    }
                 }
             }
         }
@@ -347,23 +418,32 @@ class MainActivity : AppCompatActivity() {
 //        }, 0, 500)
         GlobalScope.launch {
             while (true) {
-                if (voiceQueue.isEmpty()) {
-                    continue
-                }
-//                audioRecorder.stopRecording()
-                val mediaPlayer = MediaPlayer()
                 try {
+                    if (voiceQueue.isEmpty()) {
+                        continue
+                    }
+//                audioRecorder.stopRecording()
+                    val mediaPlayer = MediaPlayer()
                     mediaPlayer.setDataSource(voiceQueue.remove())
 //                    val audio = voiceQueue.remove()
 //                    mediaPlayer.setDataSource(audio)
                     mediaPlayer.prepare();
                     mediaPlayer.start()
-                } catch (ex: Exception) {
-                    print(ex.message)
-                }
-                while (mediaPlayer.isPlaying) {
-                }
+                    while (mediaPlayer.isPlaying) {
+                    }
 //                audioRecorder.startRecording()
+                } catch (e: Exception) {
+                    Log.e(TAG, "playback error: " + e.printStackTrace())
+                    Toast.makeText(
+                        applicationContext,
+                        "playback error: " + e.printStackTrace(),
+                        Toast.LENGTH_LONG
+                    ).show();
+                } finally {
+                    withContext(Dispatchers.IO) {
+                        TimeUnit.SECONDS.sleep(1)
+                    }
+                }
             }
         }
     }
@@ -374,7 +454,7 @@ class MainActivity : AppCompatActivity() {
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, e.toString())
+                Log.e(TAG, "pullResponse error: " + e.printStackTrace())
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -384,7 +464,7 @@ class MainActivity : AppCompatActivity() {
                 val res = responseObj.getJSONObject("response")
 
                 if (status == 1) {
-                    Log.i(TAG, "responseStr1: " + responseStr)
+                    Log.i(TAG, "responseStr: $responseStr")
                     Log.i("onResponse", res.toString())
                     val text = res.getJSONObject("message").getString("text")
                     val voice = res.getJSONObject("message").getString("voice")
@@ -411,9 +491,9 @@ class MainActivity : AppCompatActivity() {
         val buffer = BufferedReader(InputStreamReader(input))
         try {
             while (true) {
-                Log.i(TAG, "pullStreamResponse: " + url)
+                Log.i(TAG, "pullStreamResponse: $url")
                 val strBuffer = buffer.readLine() ?: continue
-                Log.i(TAG, "pullStreamResponse: " + strBuffer)
+                Log.i(TAG, "pullStreamResponse: $strBuffer")
                 val responseObj = JSONObject(strBuffer)
                 val status = responseObj.getInt("status")
                 val res = responseObj.getJSONObject("response")
@@ -430,7 +510,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "pullStreamResponse: $e")
+            Log.e(TAG, "pullStreamResponse error: " + e.printStackTrace())
+            Toast.makeText(
+                applicationContext,
+                "pullStreamResponse error: " + e.printStackTrace(),
+                Toast.LENGTH_LONG
+            ).show();
         } finally {
             response.body!!.close()
         }
@@ -537,6 +622,10 @@ class MainActivity : AppCompatActivity() {
             val dir = this.cacheDir
             deleteDir(dir)
         } catch (e: java.lang.Exception) {
+            Log.e(TAG, "deleteCache error: " + e.printStackTrace())
+            Toast.makeText(
+                applicationContext, "deleteCache error: " + e.printStackTrace(), Toast.LENGTH_LONG
+            ).show();
         }
     }
 

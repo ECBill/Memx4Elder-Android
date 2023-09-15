@@ -9,6 +9,7 @@ import android.os.Looper
 import android.util.Log
 import android.util.Size
 import android.view.Surface
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -32,7 +33,7 @@ class CameraXService internal constructor(
     var queue: Queue<ByteArray>, private val activity: AppCompatActivity
 ) {
     private val TAG: String = ImageCapturing::class.java.simpleName
-    private val rotate = 0 // TODO
+    private val rotate = 0 // TODO set image rotation
 
     private var imageSize = Size(480, 640)
 
@@ -58,14 +59,21 @@ class CameraXService internal constructor(
 
         val runTask: Runnable = object : Runnable {
             override fun run() {
-                handler.postDelayed(this, 10000) // 拍照间隔
-                if (!needCapturing) {
-                    Log.i(TAG, "Don't need capturing")
-                    return
+                try {
+                    handler.postDelayed(this, 10000)
+                    if (!needCapturing) {
+                        Log.i(TAG, "Don't need capturing")
+                        return
+                    }
+                    openCameraThenShoot()
+                } catch (e: Exception) {
+                    Log.e(TAG, "openCameraThenShoot error: " + e.printStackTrace())
+                    Toast.makeText(
+                        activity,
+                        "openCameraThenShoot error: " + e.printStackTrace(),
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
-
-                openCameraThenShoot()
-
             }
         }
         handler.post(runTask)
@@ -78,7 +86,6 @@ class CameraXService internal constructor(
             processCameraProvider = cameraProviderFuture.get()
             //设置相机参数
             bindCameraUseCases()
-
 
             val shootHandler = Handler(Looper.getMainLooper())
             val shootTask: Runnable = Runnable {
@@ -140,7 +147,12 @@ class CameraXService internal constructor(
         imageCapture?.takePicture(
             outputOptions, cameraExecutor, object : ImageCapture.OnImageSavedCallback {
                 override fun onError(exc: ImageCaptureException) {
-                    Log.d(TAG, "Photo capture failed: ${exc.message}", exc)
+                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+                    Toast.makeText(
+                        activity,
+                        "Photo capture failed: ${exc.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
 
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
@@ -156,17 +168,23 @@ class CameraXService internal constructor(
         return File(activity.cacheDir, System.currentTimeMillis().toString() + ".jpg")
     }
 
-    fun closeCamera() {
+    private fun closeCamera() {
         val handler = Handler(Looper.getMainLooper())
 
-        val runTask: Runnable = object : Runnable {
-            override fun run() {
+        val runTask: Runnable = Runnable {
+            try {
                 cameraExecutor.shutdown()
                 processCameraProvider.unbindAll()
+            } catch (e: Exception) {
+                Log.e(TAG, "closeCamera error: " + e.printStackTrace())
+                Toast.makeText(
+                    activity,
+                    "closeCamera error: " + e.printStackTrace(),
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
         handler.post(runTask)
-
     }
 
 
