@@ -34,6 +34,7 @@ import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.Response
@@ -56,8 +57,10 @@ class MainActivity : AppCompatActivity() {
     private val TAG: String = MainActivity::class.java.simpleName
 
     private var uid: String = ""
-    private var server_url: String = "https://gate.luzy.top"
-    //    private var server_url: String = "http://10.176.34.117:9527"
+
+    //    private var server_url: String = "https://gate.luzy.top"
+    private var server_url: String = "http://10.176.34.117:9527"
+//    private var server_url: String = "http://150.158.82.234:7000"
 
     private var is_first = true
 
@@ -415,7 +418,7 @@ class MainActivity : AppCompatActivity() {
 //                        Toast.LENGTH_LONG
 //                    ).show();
 //                    Looper.loop()
-                }finally {
+                } finally {
                     withContext(Dispatchers.IO) {
                         TimeUnit.SECONDS.sleep(1)
                     }
@@ -442,6 +445,7 @@ class MainActivity : AppCompatActivity() {
                     mediaPlayer.start()
                     while (mediaPlayer.isPlaying) {
                     }
+                    mediaPlayer.release()
 //                audioRecorder.startRecording()
                 } catch (e: Exception) {
                     Log.e(TAG, "playback error: $e")
@@ -498,8 +502,10 @@ class MainActivity : AppCompatActivity() {
         val url = "$server_url/response/stream/$uid"
         Log.i(TAG, "pullStreamResponse start: $url")
         val client = OkHttpClient.Builder().readTimeout(604800, TimeUnit.SECONDS)
-            .connectTimeout(60, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(true).build()
+//            .connectTimeout(604800, TimeUnit.SECONDS).writeTimeout(604800, TimeUnit.SECONDS)
+            .protocols(listOf(Protocol.HTTP_1_1))
+//            .retryOnConnectionFailure(true)
+            .build()
         val request = Request.Builder().url(url).build()
         val response = client.newCall(request).execute()
 
