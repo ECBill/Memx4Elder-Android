@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="server_ips">
+        <item>http://150.158.82.234:7000</item>
         <item>https://gate.luzy.top</item>
         <item>http://10.176.34.117:9527</item>
     </string-array>
