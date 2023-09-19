@@ -45,24 +45,24 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:checked="true"
-            android:text="相机"
-            android:textOff="关闭"
-            android:textOn="开启" />
+            android:text="Camera"
+            android:textOff="Off"
+            android:textOn="On" />
 
         <Switch
             android:id="@+id/audio_switch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:checked="true"
-            android:text="语音"
-            android:textOff="关闭"
-            android:textOn="开启" />
+            android:text="Audio"
+            android:textOff="Off"
+            android:textOn="On" />
 
         <EditText
             android:id="@+id/user_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:hint="用户ID"
+            android:hint="User ID"
             android:inputType="text" />
 
         <Spinner
@@ -75,7 +75,7 @@
             android:id="@+id/upload_user_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="设置ID" />
+            android:text="Set ID" />
 
         <androidx.camera.view.PreviewView
             android:id="@+id/previewView"
