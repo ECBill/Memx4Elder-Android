@@ -4,12 +4,16 @@ package life.memx.chat
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
@@ -60,7 +64,8 @@ class MainActivity : AppCompatActivity() {
 
     //    private var server_url: String = "https://gate.luzy.top"
 //    private var server_url: String = "http://10.176.34.117:9527"
-    private var server_url: String = "http://150.158.82.234:7000"
+//    private var server_url: String = "http://150.158.82.234:7000"
+    private var server_url: String = "https://samantha.memx.life"
 
     private var is_first = true
 
@@ -96,13 +101,24 @@ class MainActivity : AppCompatActivity() {
     private var serverSpinner: Spinner? = null
 
     private var responseText: TextView? = null
+    private var stateText: TextView? = null     // To show whether it is "waiting for interruption"
     private var userTextBtn: Button? = null
     private var responseQueue: Queue<String> = LinkedList<String>()
+
+    private lateinit var speechRecognizer: SpeechRecognizer
+    private var isListening = false     // whether the SpeechRecognizer is listening to interruption
+    private var isInterrupted = false   // whether the interruption is detected
+
+    private val mRecognitionIntent = Intent (RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, TimeUnit.SECONDS.toMillis(10))
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+    }
 
     private fun verifyPermissions(activity: Activity) = PERMISSIONS_REQUIRED.all {
         ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     @SuppressLint("HardwareIds")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -114,6 +130,70 @@ class MainActivity : AppCompatActivity() {
         val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
         uid = sharedPreferences.getString("uid", uid).toString()
 
+        // Initialize Android native SpeechRecognizer
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle) {
+                Log.i("SpeechRecognition", "Speech ready!")
+            }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray) {}
+            override fun onEndOfSpeech() {}
+            override fun onError(error: Int) {
+                when (error){
+                    1 -> Log.e("SpeechRecognition", "1: Network timeout!")
+                    2 -> Log.e("SpeechRecognition", "2: Could not find Network!")
+                    3 -> Log.e("SpeechRecognition", "3: Audio recording error!")
+                    4 -> Log.e("SpeechRecognition", "4: Could not find Network!")
+                    5 -> Log.e("SpeechRecognition", "5: Other client side errors!")
+                    6 -> Log.e("SpeechRecognition", "6: Speech input timeout!")
+                    7 -> Log.e("SpeechRecognition", "7: No detected & matched speech results!")
+                    8 -> Log.e("SpeechRecognition", "8: RecognitionService busy!")
+                    9 -> Log.e("SpeechRecognition", "9: Insufficient permissions!")
+                }
+            }
+            override fun onResults(results: Bundle) {
+                if (isListening) {
+                    // at this time, speechRecognizer should still be listening
+                    val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    Log.d("SpeechRecognition", "Recognized text: ${matches?.get(0)}")
+
+                    if (matches?.get(0)==null) {
+                        // this trigger of onResults() is due to the limited API calling duration
+                        speechRecognizer.startListening(mRecognitionIntent)
+                    }
+                    else if (interruptKeyword(matches?.get(0)!!)) {
+                        // the recognized word matches the interruption instruction, set flag
+                        isInterrupted = true
+
+                        // send a message to the server to set user status to INTERRUPT
+                        var url = "$server_url/interrupt/$uid"
+                        val client = OkHttpClient()
+                        val request = Request.Builder().url(url).build()
+                        client.newCall(request).enqueue(object : Callback {
+                            override fun onFailure(call: Call, e: IOException) {
+                                Log.e(TAG, "Update interruption state error")
+                            }
+
+                            override fun onResponse(call: Call, response: Response) {
+
+                            }
+                        })
+                    }
+                    else {
+                        // the recognized word doesn't match the interruption instruction
+                        Log.i("SpeechRecognition", "Interruption instruction not match!")
+                        speechRecognizer.startListening(mRecognitionIntent)
+                    }
+                }
+                else {
+                    // the speechRecognizer should be closed now
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle) {}
+            override fun onEvent(eventType: Int, params: Bundle) {}
+        })
 
         Log.i(TAG, "uid: $uid")
 
@@ -124,6 +204,25 @@ class MainActivity : AppCompatActivity() {
                 this, PERMISSIONS_REQUIRED, PERMISSIONS_REQUEST_CODE
             )
         }
+        if (speechRecognizer == null) {
+            Toast.makeText(
+                applicationContext, "No speech recognition service in this device, interruption disabled", Toast.LENGTH_LONG
+            ).show();
+        }
+        setStateText("Waiting for voice")
+    }
+
+    private fun interruptKeyword(input: String): Boolean {
+        val lowercaseInput = input.lowercase()
+        val keywords = listOf("stop", "ok", "yes", "no", "yeah", "yep")
+
+        for (keyword in keywords) {
+            if (lowercaseInput.contains(keyword.lowercase())) {
+                return true
+            }
+        }
+
+        return false
     }
 
     private fun registerCameraSwitch() {
@@ -233,6 +332,11 @@ class MainActivity : AppCompatActivity() {
                 // Another interface callback
             }
         })
+    }
+
+    private fun setStateText(text: String) {
+        stateText = findViewById(R.id.state_text)
+        runOnUiThread {stateText?.setText(text)}
     }
 
     private fun setResponseText(text: String) {
@@ -398,6 +502,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun pullResponseTask() {
         try {
+            // Only to fetch the first 'hello' message when the app start up ([TURN ON])
             pullResponse()
         } catch (e: Exception) {
             Log.e(TAG, "pullResponse error: $e")
@@ -433,20 +538,86 @@ class MainActivity : AppCompatActivity() {
         GlobalScope.launch {
             while (true) {
                 try {
+                    var startTime = System.currentTimeMillis()
+                    val timeThresh = TimeUnit.SECONDS.toMillis(0.5.toLong())
+                    while (isListening) {
+                        // if isListening, wait for 0.5 secs to judge the end of the response
+                        if (!voiceQueue.isEmpty()){
+                            // if receive response audio within 0.5 secs, continue processing
+                            break
+                        }
+
+                        if (System.currentTimeMillis() - startTime >= timeThresh) {
+                            // if exceeds 0.5 secs, this is treated as the end of the response
+                            // stop listening, restart recording
+                            withContext(Dispatchers.Main) {
+                                Log.i("SpeechRecognition", "end listening")
+                                speechRecognizer.cancel()
+                                isListening = false
+                                Log.i("SpeechRecognition", "Speaking finished")
+                                setStateText("Waiting for voice")
+                                audioRecorder.startRecording()
+                            }
+                            break
+                        }
+                    }
+
                     if (voiceQueue.isEmpty()) {
                         continue
                     }
-//                audioRecorder.stopRecording()
+
+                    if (!isListening) {
+                        // Start listening for interruptions util the end of response
+                        // This will only be executed at the beginning of the response
+                        withContext(Dispatchers.Main) {
+                            Log.i("SpeechRecognition", "Start listening for interruption")
+                            isListening = true
+                            speechRecognizer.startListening(mRecognitionIntent)
+                        }
+
+                        setStateText("Speaking, waiting for interruption")
+
+                        // stop recording when the response is played
+                        Log.i("SpeechRecognition", "stopRecording")
+                        audioRecorder.stopRecording()
+                    }
+
+                    // start playing the response audio
                     val mediaPlayer = MediaPlayer()
                     mediaPlayer.setDataSource(voiceQueue.remove())
-//                    val audio = voiceQueue.remove()
-//                    mediaPlayer.setDataSource(audio)
                     mediaPlayer.prepare();
                     mediaPlayer.start()
+
+                    // listen to whether the interruption flag is set
                     while (mediaPlayer.isPlaying) {
+                        if (isInterrupted){
+                            Log.i("SpeechRecognition", "Handling interruption")
+                            // Stop playing the response audio
+                            mediaPlayer.stop()
+                            // Empty the voice queue（注：清不干净，因为当前语音队列并不包含回复中所有的语音包）
+                            voiceQueue.clear()
+                            // Reset the flag
+                            isInterrupted = false
+                            break
+                        }
                     }
+                    // Finished playing the audio, stop listening for interruption and
+                    // restart recording user's voice for the next utterance
                     mediaPlayer.release()
-//                audioRecorder.startRecording()
+
+//                    GlobalScope.launch {
+//                        delay(500)
+//                        withContext(Dispatchers.Main) {
+//                            if (voiceQueue.isEmpty()) {
+//                                Log.i("SpeechRecognition", "end listening")
+//                                speechRecognizer.cancel()
+//                                isListening = false
+//                                Log.i("SpeechRecognition", "Speaking finished")
+//                                setStateText("Waiting for voice")
+//                                audioRecorder.startRecording()
+//                            }
+//                        }
+//                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "playback error: $e")
                     Looper.prepare()
