@@ -30,48 +30,48 @@
             app:layout_constraintTop_toTopOf="parent" />
 
 
-        <View
-            android:id="@+id/controlPanelLayout"
-            android:layout_width="0dp"
-            android:layout_height="100dp"
-            android:background="@color/black"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
+<!--        <View-->
+<!--            android:id="@+id/controlPanelLayout"-->
+<!--            android:layout_width="0dp"-->
+<!--            android:layout_height="100dp"-->
+<!--            android:background="@color/black"-->
+<!--            app:layout_constraintBottom_toBottomOf="parent"-->
+<!--            app:layout_constraintEnd_toEndOf="parent"-->
+<!--            app:layout_constraintStart_toStartOf="parent" />-->
 
-        <com.jiangdg.ausbc.widget.CaptureMediaView
-            android:id="@+id/captureBtn"
-            android:layout_width="76dp"
-            android:layout_height="76dp"
-            app:layout_constraintBottom_toBottomOf="@+id/controlPanelLayout"
-            app:layout_constraintEnd_toEndOf="@id/controlPanelLayout"
-            app:layout_constraintStart_toStartOf="@id/controlPanelLayout" />
-
-
-        <ImageView
-            android:id="@+id/lensFacingBtn1"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:scaleType="centerCrop"
-            android:src="@mipmap/camera_switch"
-            app:layout_constraintBottom_toBottomOf="@+id/captureBtn"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/captureBtn"
-            app:layout_constraintTop_toTopOf="@+id/captureBtn" />
+<!--        <com.jiangdg.ausbc.widget.CaptureMediaView-->
+<!--            android:id="@+id/captureBtn"-->
+<!--            android:layout_width="76dp"-->
+<!--            android:layout_height="76dp"-->
+<!--            app:layout_constraintBottom_toBottomOf="@+id/controlPanelLayout"-->
+<!--            app:layout_constraintEnd_toEndOf="@id/controlPanelLayout"-->
+<!--            app:layout_constraintStart_toStartOf="@id/controlPanelLayout" />-->
 
 
+<!--        <ImageView-->
+<!--            android:id="@+id/lensFacingBtn1"-->
+<!--            android:layout_width="48dp"-->
+<!--            android:layout_height="48dp"-->
+<!--            android:scaleType="centerCrop"-->
+<!--            android:src="@mipmap/camera_switch"-->
+<!--            app:layout_constraintBottom_toBottomOf="@+id/captureBtn"-->
+<!--            app:layout_constraintEnd_toEndOf="parent"-->
+<!--            app:layout_constraintStart_toEndOf="@+id/captureBtn"-->
+<!--            app:layout_constraintTop_toTopOf="@+id/captureBtn" />-->
 
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/recTimerLayout"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:layout_constraintEnd_toEndOf="@+id/controlPanelLayout"
-            app:layout_constraintStart_toStartOf="@+id/controlPanelLayout"
-            app:layout_constraintTop_toTopOf="@+id/controlPanelLayout">
 
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
+<!--        <androidx.constraintlayout.widget.ConstraintLayout-->
+<!--            android:id="@+id/recTimerLayout"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:visibility="gone"-->
+<!--            app:layout_constraintEnd_toEndOf="@+id/controlPanelLayout"-->
+<!--            app:layout_constraintStart_toStartOf="@+id/controlPanelLayout"-->
+<!--            app:layout_constraintTop_toTopOf="@+id/controlPanelLayout">-->
+
+
+<!--        </androidx.constraintlayout.widget.ConstraintLayout>-->
 
 
     </androidx.constraintlayout.widget.ConstraintLayout>
