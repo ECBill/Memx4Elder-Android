@@ -49,7 +49,7 @@ class ExCamFragment internal constructor(
     private lateinit var mViewBinding: FragmentDemoBinding
     private var needCapturing = true
     private lateinit var cacheDir: String
-    private val rotate = 90 // TODO
+    private val rotate = 270 // TODO
 
 
     fun startCapturing() {
@@ -210,6 +210,7 @@ class ExCamFragment internal constructor(
             val sourceBitmap = BitmapFactory.decodeFile(img_path)
             val matrix = Matrix()
             matrix.postRotate(rotate.toFloat())
+            matrix.postScale(-1.0f, 1.0f)
             val rotatedBitmap =
                 Bitmap.createBitmap(
                     sourceBitmap,

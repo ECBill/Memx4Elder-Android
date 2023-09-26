@@ -45,7 +45,6 @@
             android:gravity="center_horizontal"
             android:orientation="vertical">
 
-
             <Switch
                 android:id="@+id/camera_switch"
                 android:layout_width="wrap_content"
@@ -98,6 +97,24 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintVertical_bias="0.0" />
+
+            <TextView
+                android:id="@+id/state_text"
+                android:layout_width="383dp"
+                android:layout_height="31dp"
+                android:text="State:" />
+
+            <TextView
+                android:id="@+id/textView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="TextView" />
+
+            <TextView
+                android:id="@+id/textView2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="TextView" />
 
             <TextView
                 android:id="@+id/response_text"
