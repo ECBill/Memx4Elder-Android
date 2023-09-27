@@ -14,6 +14,8 @@ import com.jiangdg.ausbc.MultiCameraClient
 import com.jiangdg.ausbc.base.CameraFragment
 import com.jiangdg.ausbc.callback.ICameraStateCallBack
 import com.jiangdg.ausbc.callback.ICaptureCallBack
+import com.jiangdg.ausbc.camera.bean.CameraRequest
+import com.jiangdg.ausbc.render.env.RotateType
 import com.jiangdg.ausbc.utils.Logger
 import com.jiangdg.ausbc.utils.ToastUtils
 import com.jiangdg.ausbc.widget.AspectRatioTextureView
@@ -28,7 +30,7 @@ class ExCamFragment internal constructor(
     var queue: Queue<ByteArray>
 ) : CameraFragment() {
 
-    private var mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC
+//    private var mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC
 
     private lateinit var mViewBinding: FragmentDemoBinding
     private var needCapturing = true
@@ -184,7 +186,14 @@ class ExCamFragment internal constructor(
         }
 
     }
-
+    override fun getCameraRequest(): CameraRequest {
+        return CameraRequest.Builder()
+            .setPreviewWidth(640) // camera preview width
+            .setPreviewHeight(480) // camera preview height
+            .setRenderMode(CameraRequest.RenderMode.OPENGL) // camera render mode
+            .setDefaultRotateType(RotateType.FLIP_LEFT_RIGHT) // rotate camera image when opengl mode
+            .create()
+    }
     private fun captureImage() {
         val savePath = cacheDir + System.currentTimeMillis().toString() + ".jpg"
         captureImage(object : ICaptureCallBack {
