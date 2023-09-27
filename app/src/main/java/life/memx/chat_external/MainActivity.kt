@@ -41,6 +41,7 @@ import life.memx.chat_external.services.MultiCameraFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
+import life.memx.chat_external.R
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -72,7 +73,7 @@ class MainActivity : AppCompatActivity() {
     private var uid: String = ""
 
     //    private var server_url: String = "https://gate.luzy.top"
-//    private var server_url: String = "http://10.176.34.117:9527"
+//    private var server_url: String = "http://10.176.34.117:9528"
     private var server_url: String = "http://150.158.82.234:7000"
 //    private var server_url: String = "https://samantha.memx.life"
 
@@ -130,8 +131,11 @@ class MainActivity : AppCompatActivity() {
     private var isInterrupted = false   // whether the interruption is detected
     private var updateUrl = false       // whether need to update the url for long http connection
 
-    private val mRecognitionIntent = Intent (RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, TimeUnit.SECONDS.toMillis(10))
+    private val mRecognitionIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(
+            RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,
+            TimeUnit.SECONDS.toMillis(10)
+        )
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
     }
 
@@ -160,12 +164,13 @@ class MainActivity : AppCompatActivity() {
             override fun onReadyForSpeech(params: Bundle) {
                 Log.i("SpeechRecognition", "Speech ready!")
             }
+
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray) {}
             override fun onEndOfSpeech() {}
             override fun onError(error: Int) {
-                when (error){
+                when (error) {
                     1 -> Log.e("SpeechRecognition", "1: Network timeout!")
                     2 -> Log.e("SpeechRecognition", "2: Could not find Network!")
                     3 -> Log.e("SpeechRecognition", "3: Audio recording error!")
@@ -177,17 +182,17 @@ class MainActivity : AppCompatActivity() {
                     9 -> Log.e("SpeechRecognition", "9: Insufficient permissions!")
                 }
             }
+
             override fun onResults(results: Bundle) {
                 if (isListening) {
                     // at this time, speechRecognizer should still be listening
                     val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     Log.d("SpeechRecognition", "Recognized text: ${matches?.get(0)}")
 
-                    if (matches?.get(0)==null) {
+                    if (matches?.get(0) == null) {
                         // this trigger of onResults() is due to the limited API calling duration
                         speechRecognizer.startListening(mRecognitionIntent)
-                    }
-                    else if (interruptKeyword(matches?.get(0)!!)) {
+                    } else if (interruptKeyword(matches?.get(0)!!)) {
                         // the recognized word matches the interruption instruction, set flag
                         isInterrupted = true
 
@@ -204,17 +209,16 @@ class MainActivity : AppCompatActivity() {
 
                             }
                         })
-                    }
-                    else {
+                    } else {
                         // the recognized word doesn't match the interruption instruction
                         Log.i("SpeechRecognition", "Interruption instruction not match!")
                         speechRecognizer.startListening(mRecognitionIntent)
                     }
-                }
-                else {
+                } else {
                     // the speechRecognizer should be closed now
                 }
             }
+
             override fun onPartialResults(partialResults: Bundle) {}
             override fun onEvent(eventType: Int, params: Bundle) {}
         })
@@ -231,7 +235,9 @@ class MainActivity : AppCompatActivity() {
 
         if (speechRecognizer == null) {
             Toast.makeText(
-                applicationContext, "No speech recognition service in this device, interruption disabled", Toast.LENGTH_LONG
+                applicationContext,
+                "No speech recognition service in this device, interruption disabled",
+                Toast.LENGTH_LONG
             ).show();
         }
         setStateText("Waiting for voice")
@@ -406,7 +412,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setStateText(text: String) {
         stateText = findViewById(R.id.state_text)
-        runOnUiThread {stateText?.setText(text)}
+        runOnUiThread { stateText?.setText(text) }
     }
 
     private fun setResponseText(text: String) {
@@ -473,7 +479,7 @@ class MainActivity : AppCompatActivity() {
             override fun run() {
                 pushData()
             }
-        }, 0, 1000)
+        }, 0, 100)
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -493,9 +499,16 @@ class MainActivity : AppCompatActivity() {
             data.put("timestamp", System.currentTimeMillis())
             val mAudioFile = getAudio()
             val mImageFile = getImage()
-            uploadServer(
-                "$server_url/heartbeat", data, mAudioFile, mImageFile
-            )
+            if (mAudioFile != null) {
+                uploadServer(
+                    "$server_url/heartbeat", data, mAudioFile, null
+                )
+            }
+            if (mImageFile != null) {
+                uploadServer(
+                    "$server_url/heartbeat", data, null, mImageFile
+                )
+            }
         } catch (e: Exception) {
             Log.e(TAG, "pushData error: $e")
             Looper.prepare()
@@ -595,7 +608,8 @@ class MainActivity : AppCompatActivity() {
             }
         })
     }
-//    private fun pushEyeImageTask() {
+
+    //    private fun pushEyeImageTask() {
 //        Timer().schedule(object : TimerTask() {
 //            @RequiresApi(Build.VERSION_CODES.O)
 //            override fun run() {
@@ -654,7 +668,7 @@ class MainActivity : AppCompatActivity() {
                     val timeThresh = TimeUnit.SECONDS.toMillis(0.5.toLong())
                     while (isListening) {
                         // if isListening, wait for 0.5 secs to judge the end of the response
-                        if (!voiceQueue.isEmpty()){
+                        if (!voiceQueue.isEmpty()) {
                             // if receive response audio within 0.5 secs, continue processing
                             break
                         }
@@ -701,7 +715,7 @@ class MainActivity : AppCompatActivity() {
 
                     // listen to whether the interruption flag is set
                     while (mediaPlayer.isPlaying) {
-                        if (isInterrupted){
+                        if (isInterrupted) {
                             Log.i("SpeechRecognition", "Handling interruption")
                             // Stop playing the response audio
                             mediaPlayer.stop()
