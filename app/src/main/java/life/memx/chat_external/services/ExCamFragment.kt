@@ -191,7 +191,7 @@ class ExCamFragment internal constructor(
             .setPreviewWidth(640) // camera preview width
             .setPreviewHeight(480) // camera preview height
             .setRenderMode(CameraRequest.RenderMode.OPENGL) // camera render mode
-            .setDefaultRotateType(RotateType.FLIP_LEFT_RIGHT) // rotate camera image when opengl mode
+            .setDefaultRotateType(RotateType.ANGLE_180) // rotate camera image when opengl mode
             .create()
     }
     private fun captureImage() {
