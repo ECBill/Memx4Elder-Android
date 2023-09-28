@@ -24,6 +24,7 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
@@ -246,15 +247,20 @@ class MainActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        registerHeadsetListener()
+        // init UI
+        uid = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
+        uid = sharedPreferences.getString("uid", uid).toString()
+
+        registerUserText()
+        registerCameraSwitch()
+        registerAudioSwitch()
+        registerServerSpinner()
 //        replaceDemoFragment(DemoMultiCameraFragment())
         replaceDemoFragment(imageCapturer)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         deleteCache()
 
-        uid = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-        val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
-        uid = sharedPreferences.getString("uid", uid).toString()
 
         // Initialize Android native SpeechRecognizer
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
@@ -327,6 +333,8 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(
                 this, PERMISSIONS_REQUIRED, PERMISSIONS_REQUEST_CODE
             )
+        }else{
+            run()
         }
 
         ToastUtils.init(this)
@@ -339,33 +347,11 @@ class MainActivity : AppCompatActivity() {
             ).show();
         }
         setStateText("Waiting for voice")
+
+        registerHeadsetListener()
     }
 
     private fun replaceDemoFragment(fragment: Fragment) {
-        val hasCameraPermission = PermissionChecker.checkSelfPermission(
-            this,
-            Manifest.permission.CAMERA
-        )
-        val hasStoragePermission =
-            PermissionChecker.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        if (hasCameraPermission != PermissionChecker.PERMISSION_GRANTED || hasStoragePermission != PermissionChecker.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(
-                    this,
-                    Manifest.permission.CAMERA
-                )
-            ) {
-            }
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    Manifest.permission.CAMERA,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    Manifest.permission.RECORD_AUDIO
-                ),
-                REQUEST_CAMERA
-            )
-            return
-        }
         val transaction = supportFragmentManager.beginTransaction()
         transaction.replace(R.id.fragment_container, fragment)
         transaction.commitAllowingStateLoss()
@@ -459,17 +445,22 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(applicationContext, "设置用户: $text", Toast.LENGTH_SHORT)
                         .show();
                     // restart pull response loop
-                    pullResponseJob.cancel()
-                    pullResponseJob = GlobalScope.launch {
-                        pullResponseLoop()
+                    if (this::pullResponseJob.isInitialized){
+                        pullResponseJob.cancel()
+                        pullResponseJob = GlobalScope.launch {
+                            pullResponseLoop()
+                        }
+                        Log.i("Stream", "Update url: $updateUrl")
                     }
-                    Log.i("Stream", "Update url: $updateUrl")
                 } else {
                     Log.d(TAG, "user text is empty")
                     Toast.makeText(
                         applicationContext, "用户不能设置为空", Toast.LENGTH_SHORT
                     ).show();
                 }
+                // hide keyboard
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.hideSoftInputFromWindow(userText?.windowToken, 0)
             } catch (e: Exception) {
                 Log.e(TAG, "set user text error: $e")
                 Toast.makeText(
@@ -489,9 +480,11 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT)
                         .show();
                     // restart pull response loop
-                    pullResponseJob.cancel()
-                    pullResponseJob = GlobalScope.launch {
-                        pullResponseLoop()
+                    if (this@MainActivity::pullResponseJob.isInitialized){
+                        pullResponseJob.cancel()
+                        pullResponseJob = GlobalScope.launch {
+                            pullResponseLoop()
+                        }
                     }
                     Log.i("Stream", "Update url: $updateUrl")
                 } catch (e: Exception) {
@@ -534,7 +527,8 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSIONS_REQUEST_CODE) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "onRequestPermissionsResult ${grantResults.size}")
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 run()
             } else {
                 Log.e(TAG, "Permission Denied");
@@ -545,7 +539,6 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         mWakeLock = Utils.wakeLock(this)
-        run()
     }
 
     override fun onStop() {
@@ -560,11 +553,6 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun run() {
-        registerUserText()
-        registerCameraSwitch()
-        registerAudioSwitch()
-        registerServerSpinner()
-
         imageCapturer.startCapturing()
         // imageCapturer.setImageSize(640, 480) //TODO: set image size
         audioRecorder.startRecording()
