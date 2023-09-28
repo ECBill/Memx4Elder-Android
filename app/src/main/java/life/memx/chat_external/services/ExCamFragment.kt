@@ -114,7 +114,7 @@ class ExCamFragment internal constructor(
     }
 
     private fun handleCameraClosed() {
-        ToastUtils.show("camera closed success")
+//        ToastUtils.show("camera closed success")
     }
 
     private fun handleCameraOpened() {
@@ -139,7 +139,7 @@ class ExCamFragment internal constructor(
 //
 //            }
 //        })
-        ToastUtils.show("camera opened success")
+//        ToastUtils.show("camera opened success")
     }
 
 

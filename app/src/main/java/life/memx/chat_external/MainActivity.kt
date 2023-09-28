@@ -4,12 +4,10 @@ package life.memx.chat_external
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.bluetooth.BluetoothHeadset
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -94,7 +92,6 @@ class MainActivity : AppCompatActivity() {
         Manifest.permission.WRITE_EXTERNAL_STORAGE,
         Manifest.permission.CAMERA,
         Manifest.permission.RECORD_AUDIO,
-        Manifest.permission.BLUETOOTH_CONNECT,
     )
     private lateinit var viewBinding: ActivityMainBinding
 
@@ -151,96 +148,60 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var audioManager: AudioManager
-    private val headsetReceiver = HeadsetReceiver()
 
-    inner class HeadsetReceiver : BroadcastReceiver() {
-        @RequiresApi(Build.VERSION_CODES.S)
-        private fun getBTHeadsetDevice(audioManager: AudioManager): AudioDeviceInfo? {
-            val devices = audioManager.availableCommunicationDevices
-            for (device in devices) {
-                if (device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
-                    return device
-                }
-            }
-            return null
-        }
 
-        @RequiresApi(Build.VERSION_CODES.S)
-        private fun getWireHeadsetDevice(audioManager: AudioManager): AudioDeviceInfo? {
-            val devices = audioManager.availableCommunicationDevices
-            for (device in devices) {
-                if (device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
-                    return device
-                }
-            }
-            return null
-        }
-
-        @RequiresApi(Build.VERSION_CODES.S)
-        private fun getBuiltinSpeaker(audioManager: AudioManager): AudioDeviceInfo? {
-            val devices = audioManager.availableCommunicationDevices
-            for (device in devices) {
-                if (device.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
-                    return device
-                }
-            }
-            return null
-        }
-
-        @RequiresApi(Build.VERSION_CODES.S)
-        private fun autoSetAudioDevice() {
-            Log.w(TAG, "audioManager${audioManager.availableCommunicationDevices}")
-            val btHeadsetDevice = getBTHeadsetDevice(audioManager)
-            val wireHeadsetDevice = getWireHeadsetDevice(audioManager)
-            val builtinSpeaker = getBuiltinSpeaker(audioManager)
-            val currentDevice = audioManager.communicationDevice
-            if (btHeadsetDevice != null) {
-                if (currentDevice == btHeadsetDevice) {
-                    return
-                }
-                audioManager.setCommunicationDevice(btHeadsetDevice)
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun useBuiltinSpeaker() {
+        val devices = audioManager.availableCommunicationDevices
+        for (device in devices) {
+            if (device.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                audioManager.setCommunicationDevice(device)
                 Toast.makeText(
-                    this@MainActivity, "Bluetooth Headset Connected", Toast.LENGTH_SHORT
+                    applicationContext, "Use Builtin Speaker", Toast.LENGTH_SHORT
                 ).show()
-            } else if (wireHeadsetDevice != null) {
-                if (currentDevice == wireHeadsetDevice) {
-                    return
-                }
-                audioManager.setCommunicationDevice(wireHeadsetDevice)
-                Toast.makeText(
-                    this@MainActivity, "Wired Headset Connected", Toast.LENGTH_SHORT
-                ).show()
-            } else if (builtinSpeaker != null) {
-                if (currentDevice == builtinSpeaker) {
-                    return
-                }
-                audioManager.setCommunicationDevice(builtinSpeaker)
-                Toast.makeText(
-                    this@MainActivity, "Use Builtin Speaker", Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                autoSetAudioDevice()
             }
         }
     }
 
-    fun registerHeadsetListener() {
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    @RequiresApi(Build.VERSION_CODES.S)
+    fun registerAudioManagerListener() {
+        audioManager.registerAudioDeviceCallback(object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) {
+                super.onAudioDevicesAdded(addedDevices)
+                for (device in addedDevices) {
+                    if (device in audioManager.availableCommunicationDevices &&
+                        device.type != AudioDeviceInfo.TYPE_BUILTIN_EARPIECE && device.type != AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    ) {
+                        audioManager.setCommunicationDevice(device)
+                        Log.i(
+                            TAG,
+                            "audioManager add device: ${device.type} ${device.productName}"
+                        )
+                        val deviceName = if (device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
+                            "Bluetooth Headset"
+                        } else if (device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
+                            "Wired Headset"
+                        } else {
+                            "Device${device.type}"
+                        }
+                        Toast.makeText(
+                            applicationContext,
+                            "$deviceName Connected",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
 
-        val HEADPHONE_ACTIONS = arrayOf(
-            Intent.ACTION_HEADSET_PLUG,  // 普通耳机插入
-            BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED,
-        )
-        val filter = IntentFilter()
-        for (action in HEADPHONE_ACTIONS) {
-            filter.addAction(action)
-        }
-        registerReceiver(headsetReceiver, filter)
-
+            override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) {
+                super.onAudioDevicesRemoved(removedDevices)
+                Log.w(TAG, "audioManager onAudioDevicesRemoved: $removedDevices")
+                for (device in removedDevices) {
+                    Log.w(TAG, "audioManager remove device: ${device.type} ${device.productName}")
+                }
+                useBuiltinSpeaker()
+            }
+        }, null)
     }
 
     private fun verifyPermissions(activity: Activity) = PERMISSIONS_REQUIRED.all {
@@ -359,7 +320,10 @@ class MainActivity : AppCompatActivity() {
         }
         setStateText("Waiting for voice")
 
-        registerHeadsetListener()
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        useBuiltinSpeaker()
+        registerAudioManagerListener()
+
         netUtils?.setDelayTime(0)?.setRecyclerTime(300)?.start(findViewById(R.id.tvNetSpeed))//网络
     }
 
@@ -1111,8 +1075,5 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-
-        // 取消注册广播接收器
-        unregisterReceiver(headsetReceiver)
     }
 }
