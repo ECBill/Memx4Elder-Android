@@ -851,9 +851,9 @@ class MainActivity : AppCompatActivity() {
                     ).show();
                     Looper.loop()
                 } finally {
-                    withContext(Dispatchers.IO) {
-                        TimeUnit.SECONDS.sleep(1)
-                    }
+//                    withContext(Dispatchers.IO) {
+//                        TimeUnit.SECONDS.sleep(1)
+//                    }
                 }
             }
         }
