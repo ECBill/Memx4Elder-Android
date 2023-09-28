@@ -278,6 +278,8 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle) {
                 Log.i("SpeechRecognition", "Speech ready!")
+                setStateText("Interrupt Listener: start listening\n" +
+                             "Interruption words: yes/no/ok/stop")
             }
 
             override fun onBeginningOfSpeech() {}
@@ -286,15 +288,42 @@ class MainActivity : AppCompatActivity() {
             override fun onEndOfSpeech() {}
             override fun onError(error: Int) {
                 when (error) {
-                    1 -> Log.e("SpeechRecognition", "1: Network timeout!")
-                    2 -> Log.e("SpeechRecognition", "2: Could not find Network!")
-                    3 -> Log.e("SpeechRecognition", "3: Audio recording error!")
-                    4 -> Log.e("SpeechRecognition", "4: Could not find Network!")
-                    5 -> Log.e("SpeechRecognition", "5: Other client side errors!")
-                    6 -> Log.e("SpeechRecognition", "6: Speech input timeout!")
-                    7 -> Log.e("SpeechRecognition", "7: No detected & matched speech results!")
-                    8 -> Log.e("SpeechRecognition", "8: RecognitionService busy!")
-                    9 -> Log.e("SpeechRecognition", "9: Insufficient permissions!")
+                    1 -> {
+                        Log.e("SpeechRecognition", "1: Network timeout!")
+                        setStateText("Interrupt Listener: network timeout")
+                    }
+                    2 -> {
+                        Log.e("SpeechRecognition", "2: Could not find Network!")
+                        setStateText("Interrupt Listener: network not found")
+                    }
+                    3 -> {
+                        Log.e("SpeechRecognition", "3: Audio recording error!")
+                        setStateText("Interrupt Listener: recording error")
+                    }
+                    4 -> {
+                        Log.e("SpeechRecognition", "4: Server error!")
+                        setStateText("Interrupt Listener: server error")
+                    }
+                    5 -> {
+                        Log.e("SpeechRecognition", "5: Other client side errors!")
+                        setStateText("Interrupt Listener: app error")
+                    }
+                    6 -> {
+                        Log.e("SpeechRecognition", "6: Speech input timeout!")
+                        setStateText("Interrupt Listener: speech timeout")
+                    }
+                    7 -> {
+                        Log.e("SpeechRecognition", "7: No detected & matched speech results!")
+                        setStateText("Interrupt Listener: no speech detected")
+                    }
+                    8 -> {
+                        Log.e("SpeechRecognition", "8: RecognitionService busy!")
+                        setStateText("Interrupt Listener: service busy")
+                    }
+                    9 -> {
+                        Log.e("SpeechRecognition", "9: Insufficient permissions!")
+                        setStateText("Interrupt Listener: no permission")
+                    }
                 }
             }
 
@@ -310,7 +339,7 @@ class MainActivity : AppCompatActivity() {
                     } else if (interruptKeyword(matches?.get(0)!!)) {
                         // the recognized word matches the interruption instruction, set flag
                         isInterrupted = true
-
+                        setStateText("Interrupt Listener: keywords detected!")
                         // send a message to the server to set user status to INTERRUPT
                         var url = "$server_url/interrupt/$uid"
                         val client = OkHttpClient()
@@ -357,7 +386,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.LENGTH_LONG
             ).show();
         }
-        setStateText("Waiting for voice")
+        setStateText("State: Waiting for voice.")
 
         registerHeadsetListener()
         netUtils?.setDelayTime(0)?.setRecyclerTime(300)?.start(findViewById(R.id.tvNetSpeed))//网络
@@ -418,7 +447,7 @@ class MainActivity : AppCompatActivity() {
                     audioRecorder.setNeedRecording(true)
                     audioRecorder.startRecording()
                     Log.d(TAG, "setNeedRecording: true")
-                    setStateText("State: start recording audio.")
+                    setStateText("State: Waiting for voice.")
                     Toast.makeText(
                         applicationContext, "open audio", Toast.LENGTH_SHORT
                     ).show();
