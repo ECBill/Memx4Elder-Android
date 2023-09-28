@@ -47,6 +47,7 @@ import life.memx.chat_external.databinding.ActivityMainBinding
 import life.memx.chat_external.services.AudioRecording
 import life.memx.chat_external.services.ExCamFragment
 import life.memx.chat_external.utils.NetUtils
+import life.memx.chat_external.utils.TimerUtil
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -76,6 +77,7 @@ class MainActivity : AppCompatActivity() {
     private var netUtils: NetUtils? = null
     private var uploadTime = 0L
     private var requestTime = 0L
+    private var tvClientCost: TextView? = null
     private var tvServerSpeed: TextView? = null
     private var dlContainer: DrawerLayout? = null
     private var uid: String = ""
@@ -101,6 +103,7 @@ class MainActivity : AppCompatActivity() {
         private const val PERMISSIONS_REQUEST_CODE = 10
         private const val REQUEST_CAMERA = 0
         private const val REQUEST_STORAGE = 1
+        private const val TIMER_SERVER_PROCESSING = 1
     }
 
     private var mWakeLock: PowerManager.WakeLock? = null
@@ -148,6 +151,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var audioManager: AudioManager
+    private val timerUtil = TimerUtil()
 
 
     @RequiresApi(Build.VERSION_CODES.S)
@@ -405,7 +409,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun registerUserText() {
-
+        tvClientCost = findViewById(R.id.tvClientCost)
         tvServerSpeed = findViewById(R.id.tvServerSpeed)
         userText = findViewById(R.id.user_text)
         userText?.setText(uid)
@@ -934,6 +938,17 @@ class MainActivity : AppCompatActivity() {
                     setResponseText(text)
                     if (text == "[INTERRUPT]") {
                         voiceQueue.clear()
+                    } else if (text == "[UNDER_PROCESSING]") {
+                        timerUtil.startTimer(TIMER_SERVER_PROCESSING)
+                        Log.i("onResponse", "start timer")
+                    } else {
+                        val costMilSecs = timerUtil.stopTimer(TIMER_SERVER_PROCESSING)
+                        Log.i("onResponse", "stop timer $costMilSecs")
+                        runOnUiThread {
+                            if (costMilSecs > 10) {
+                                tvClientCost?.text = "体感耗时：${costMilSecs}毫秒"
+                            }
+                        }
                     }
                     voiceQueue.add(voice)
                 }
