@@ -22,6 +22,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
+import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
@@ -35,7 +36,7 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.content.PermissionChecker
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import com.jiangdg.ausbc.utils.ToastUtils
 import com.jiangdg.ausbc.utils.Utils
@@ -47,6 +48,7 @@ import kotlinx.coroutines.withContext
 import life.memx.chat_external.databinding.ActivityMainBinding
 import life.memx.chat_external.services.AudioRecording
 import life.memx.chat_external.services.ExCamFragment
+import life.memx.chat_external.utils.NetUtils
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -73,7 +75,11 @@ import java.util.concurrent.TimeUnit
 class MainActivity : AppCompatActivity() {
 
     private val TAG: String = MainActivity::class.java.simpleName
-
+    private var netUtils: NetUtils? = null
+    private var uploadTime = 0L
+    private var requestTime = 0L
+    private var tvServerSpeed: TextView? = null
+    private var dlContainer: DrawerLayout? = null
     private var uid: String = ""
 
     //    private var server_url: String = "https://gate.luzy.top"
@@ -243,6 +249,7 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.S)
     @SuppressLint("HardwareIds")
+
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
@@ -258,6 +265,10 @@ class MainActivity : AppCompatActivity() {
         registerServerSpinner()
 //        replaceDemoFragment(DemoMultiCameraFragment())
         replaceDemoFragment(imageCapturer)
+
+        netUtils = NetUtils(this@MainActivity)
+        dlContainer = findViewById(R.id.dlContainer)
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         deleteCache()
 
@@ -333,7 +344,7 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(
                 this, PERMISSIONS_REQUIRED, PERMISSIONS_REQUEST_CODE
             )
-        }else{
+        } else {
             run()
         }
 
@@ -349,6 +360,7 @@ class MainActivity : AppCompatActivity() {
         setStateText("Waiting for voice")
 
         registerHeadsetListener()
+        netUtils?.setDelayTime(0)?.setRecyclerTime(300)?.start(findViewById(R.id.tvNetSpeed))//网络
     }
 
     private fun replaceDemoFragment(fragment: Fragment) {
@@ -429,6 +441,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun registerUserText() {
+
+        tvServerSpeed = findViewById(R.id.tvServerSpeed)
         userText = findViewById(R.id.user_text)
         userText?.setText(uid)
         userTextBtn = findViewById(R.id.upload_user_text)
@@ -445,7 +459,7 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(applicationContext, "设置用户: $text", Toast.LENGTH_SHORT)
                         .show();
                     // restart pull response loop
-                    if (this::pullResponseJob.isInitialized){
+                    if (this::pullResponseJob.isInitialized) {
                         pullResponseJob.cancel()
                         pullResponseJob = GlobalScope.launch {
                             pullResponseLoop()
@@ -480,7 +494,7 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT)
                         .show();
                     // restart pull response loop
-                    if (this@MainActivity::pullResponseJob.isInitialized){
+                    if (this@MainActivity::pullResponseJob.isInitialized) {
                         pullResponseJob.cancel()
                         pullResponseJob = GlobalScope.launch {
                             pullResponseLoop()
@@ -683,6 +697,8 @@ class MainActivity : AppCompatActivity() {
             requestBody.addFormDataPart("scene_file", sceneFile.name, body)
         }
 
+        var currentMills = System.currentTimeMillis()
+
         val request = Request.Builder().url(url).post(requestBody.build()).build()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -691,6 +707,13 @@ class MainActivity : AppCompatActivity() {
 
             override fun onResponse(call: Call, response: Response) {
                 response.body!!.close()
+                //网络
+                uploadTime = System.currentTimeMillis() - currentMills
+                //网络
+                runOnUiThread {
+                    tvServerSpeed?.text =
+                        "请求服务端用时：${requestTime}毫秒\n上传耗时：${uploadTime}毫秒"
+                }
             }
         })
     }
@@ -839,9 +862,9 @@ class MainActivity : AppCompatActivity() {
                     ).show();
                     Looper.loop()
                 } finally {
-                    withContext(Dispatchers.IO) {
-                        TimeUnit.SECONDS.sleep(1)
-                    }
+//                    withContext(Dispatchers.IO) {
+//                        TimeUnit.SECONDS.sleep(1)
+//                    }
                 }
             }
         }
@@ -862,6 +885,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pullResponse() {
+        var startMills = System.currentTimeMillis()//网络
         var url = "$server_url/response/$uid?is_first=$is_first"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
@@ -889,12 +913,23 @@ class MainActivity : AppCompatActivity() {
                     voiceQueue.add(voice)
                     is_first = false
                 }
+
+                //网络
+                requestTime = System.currentTimeMillis() - startMills
+                Log.e("HHH", "" + requestTime)
+                //网络
+                runOnUiThread {
+                    tvServerSpeed?.text =
+                        "请求服务端用时：${requestTime}毫秒\n上传耗时：${uploadTime}毫秒"
+                }
+
                 response.body!!.close()
             }
         })
     }
 
     private fun pullStreamResponse() {
+        var startMills = System.currentTimeMillis()//网络
         val url = "$server_url/response/stream/$uid"
         Log.i(TAG, "pullStreamResponse start: $url")
         val client = OkHttpClient.Builder().readTimeout(604800, TimeUnit.SECONDS)
@@ -906,6 +941,9 @@ class MainActivity : AppCompatActivity() {
         val call = client.newCall(request)
         val response = call.execute()
 
+        runOnUiThread {
+            tvServerSpeed?.text = "请求服务端用时：${requestTime}毫秒\n上传耗时：${uploadTime}毫秒"
+        }
         val input = response.body!!.byteStream()
         val buffer = BufferedReader(InputStreamReader(input))
         try {
@@ -989,7 +1027,7 @@ class MainActivity : AppCompatActivity() {
 //        })
 //    }
 
-//    private fun pullResponse() {
+    //    private fun pullResponse() {
 //        var url = "$server_url/response/v3/$uid"
 //        val client = OkHttpClient()
 //        val request = Request.Builder().url(url).build()
@@ -1037,6 +1075,10 @@ class MainActivity : AppCompatActivity() {
 //            }
 //        })
 //    }
+    fun checkNet(view: View) {
+        dlContainer?.openDrawer(Gravity.LEFT)
+    }
+
 
     fun deleteCache() {
         try {
