@@ -4,13 +4,19 @@ package life.memx.chat_external
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.bluetooth.BluetoothHeadset
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -32,16 +38,14 @@ import androidx.core.content.PermissionChecker
 import androidx.fragment.app.Fragment
 import com.jiangdg.ausbc.utils.ToastUtils
 import com.jiangdg.ausbc.utils.Utils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import life.memx.chat_external.databinding.ActivityMainBinding
 import life.memx.chat_external.services.AudioRecording
 import life.memx.chat_external.services.ExCamFragment
-import life.memx.chat_external.services.MultiCameraFragment
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.withContext
-import life.memx.chat_external.R
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -63,7 +67,6 @@ import java.util.Queue
 import java.util.Timer
 import java.util.TimerTask
 import java.util.concurrent.TimeUnit
-import kotlin.concurrent.thread
 
 
 class MainActivity : AppCompatActivity() {
@@ -83,7 +86,8 @@ class MainActivity : AppCompatActivity() {
         Manifest.permission.READ_EXTERNAL_STORAGE,
         Manifest.permission.WRITE_EXTERNAL_STORAGE,
         Manifest.permission.CAMERA,
-        Manifest.permission.RECORD_AUDIO
+        Manifest.permission.RECORD_AUDIO,
+        Manifest.permission.BLUETOOTH_CONNECT,
     )
     private lateinit var viewBinding: ActivityMainBinding
 
@@ -139,6 +143,99 @@ class MainActivity : AppCompatActivity() {
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
     }
 
+    private lateinit var audioManager: AudioManager
+    private val headsetReceiver = HeadsetReceiver()
+
+    inner class HeadsetReceiver : BroadcastReceiver() {
+        @RequiresApi(Build.VERSION_CODES.S)
+        private fun getBTHeadsetDevice(audioManager: AudioManager): AudioDeviceInfo? {
+            val devices = audioManager.availableCommunicationDevices
+            for (device in devices) {
+                if (device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
+                    return device
+                }
+            }
+            return null
+        }
+
+        @RequiresApi(Build.VERSION_CODES.S)
+        private fun getWireHeadsetDevice(audioManager: AudioManager): AudioDeviceInfo? {
+            val devices = audioManager.availableCommunicationDevices
+            for (device in devices) {
+                if (device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
+                    return device
+                }
+            }
+            return null
+        }
+
+        @RequiresApi(Build.VERSION_CODES.S)
+        private fun getBuiltinSpeaker(audioManager: AudioManager): AudioDeviceInfo? {
+            val devices = audioManager.availableCommunicationDevices
+            for (device in devices) {
+                if (device.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                    return device
+                }
+            }
+            return null
+        }
+
+        @RequiresApi(Build.VERSION_CODES.S)
+        private fun autoSetAudioDevice() {
+            Log.w(TAG, "audioManager${audioManager.availableCommunicationDevices}")
+            val btHeadsetDevice = getBTHeadsetDevice(audioManager)
+            val wireHeadsetDevice = getWireHeadsetDevice(audioManager)
+            val builtinSpeaker = getBuiltinSpeaker(audioManager)
+            val currentDevice = audioManager.communicationDevice
+            if (btHeadsetDevice != null) {
+                if (currentDevice == btHeadsetDevice) {
+                    return
+                }
+                audioManager.setCommunicationDevice(btHeadsetDevice)
+                Toast.makeText(
+                    this@MainActivity, "Bluetooth Headset Connected", Toast.LENGTH_SHORT
+                ).show()
+            } else if (wireHeadsetDevice != null) {
+                if (currentDevice == wireHeadsetDevice) {
+                    return
+                }
+                audioManager.setCommunicationDevice(wireHeadsetDevice)
+                Toast.makeText(
+                    this@MainActivity, "Wired Headset Connected", Toast.LENGTH_SHORT
+                ).show()
+            } else if (builtinSpeaker != null) {
+                if (currentDevice == builtinSpeaker) {
+                    return
+                }
+                audioManager.setCommunicationDevice(builtinSpeaker)
+                Toast.makeText(
+                    this@MainActivity, "Use Builtin Speaker", Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                autoSetAudioDevice()
+            }
+        }
+    }
+
+    fun registerHeadsetListener() {
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        val HEADPHONE_ACTIONS = arrayOf(
+            Intent.ACTION_HEADSET_PLUG,  // 普通耳机插入
+            BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED,
+        )
+        val filter = IntentFilter()
+        for (action in HEADPHONE_ACTIONS) {
+            filter.addAction(action)
+        }
+        registerReceiver(headsetReceiver, filter)
+
+    }
+
     private fun verifyPermissions(activity: Activity) = PERMISSIONS_REQUIRED.all {
         ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
     }
@@ -149,6 +246,7 @@ class MainActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        registerHeadsetListener()
 //        replaceDemoFragment(DemoMultiCameraFragment())
         replaceDemoFragment(imageCapturer)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -979,5 +1077,12 @@ class MainActivity : AppCompatActivity() {
         } else {
             false
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
+        // 取消注册广播接收器
+        unregisterReceiver(headsetReceiver)
     }
 }
