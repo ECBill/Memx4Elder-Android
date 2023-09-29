@@ -163,7 +163,7 @@ class ExCamFragment internal constructor(
             val sourceBitmap = BitmapFactory.decodeFile(img_path)
             val matrix = Matrix()
             matrix.postRotate(rotate.toFloat())
-            matrix.postScale(-1.0f, 1.0f)
+//            matrix.postScale(-1.0f, 1.0f)
             val rotatedBitmap =
                 Bitmap.createBitmap(
                     sourceBitmap,
@@ -189,7 +189,7 @@ class ExCamFragment internal constructor(
     override fun getCameraRequest(): CameraRequest {
         return CameraRequest.Builder()
             .setPreviewWidth(640) // camera preview width
-            .setPreviewHeight(480) // camera preview height
+            .setPreviewHeight(640) // camera preview height
             .setRenderMode(CameraRequest.RenderMode.OPENGL) // camera render mode
             .setDefaultRotateType(RotateType.ANGLE_180) // rotate camera image when opengl mode
             .create()
