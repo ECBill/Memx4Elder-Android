@@ -336,7 +336,7 @@ class MainActivity : AppCompatActivity() {
                         // the recognized word doesn't match the interruption instruction
                         Log.i("SpeechRecognition", "Interruption instruction not match!")
                         setStateText("Interrupt Listener detected:"+matches?.get(0),
-                                     true, INFOMSG)
+                            true, INFOMSG)
                         speechRecognizer.startListening(mRecognitionIntent)
                     }
                 } else {
@@ -987,6 +987,10 @@ class MainActivity : AppCompatActivity() {
 
         val input = response.body!!.byteStream()
         val buffer = BufferedReader(InputStreamReader(input))
+
+        var firstResPkgFlag = false // 当前是否为第一个回复语音包
+        var pkgCounter = 0
+        var firstPkgMills = System.currentTimeMillis()
         try {
             while (true) {
                 Log.i("Stream", "Update url in while loop: $updateUrl")
@@ -998,7 +1002,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 Log.i(TAG, "pullStreamResponse: $url")
 
-                // TODO: 统计每一行的传输耗时
                 val strBuffer = buffer.readLine() ?: break
                 Log.i(TAG, "pullStreamResponse: $strBuffer")
                 val responseObj = JSONObject(strBuffer)
@@ -1010,17 +1013,32 @@ class MainActivity : AppCompatActivity() {
                     val voice = res.getJSONObject("message").getString("voice")
                     Log.i("onResponse voice: ", voice)
                     setResponseText(text)
-                    if (text == "[INTERRUPT]") {
-                        voiceQueue.clear()
-                    } else if (text == "[UNDER_PROCESSING]") {
-                        timerUtil.startTimer(TIMER_SERVER_PROCESSING)
+
+                    if (text.startsWith("[")) {  // deal with command
+                        pkgCounter = 0
+                        firstResPkgFlag = true
+                        if (text == "[INTERRUPT]") {
+                            voiceQueue.clear()
+                        } else if (text == "[UNDER_PROCESSING]") {
+                            timerUtil.startTimer(TIMER_SERVER_PROCESSING)
+                        }
                     } else {
-                        val costMilSecs = timerUtil.stopTimer(TIMER_SERVER_PROCESSING)
-                        Log.i("onResponse", "stop timer $costMilSecs")
-                        performanceMonitorView.setProcessingDelay(costMilSecs)
+                        pkgCounter += 1
+                        if (firstResPkgFlag) {
+                            firstPkgMills = System.currentTimeMillis()
+                            firstResPkgFlag = false
+                        }else{
+                            val pullDelay = System.currentTimeMillis() - firstPkgMills
+                            performanceMonitorView.setPullDelay(pullDelay / pkgCounter) // set avg delay
+                            firstPkgMills = System.currentTimeMillis()
+                        }
+
+                        val processingMilSecs = timerUtil.stopTimer(TIMER_SERVER_PROCESSING)
+                        performanceMonitorView.setProcessingDelay(processingMilSecs)
                     }
                     voiceQueue.add(voice)
                 }
+
             }
         } catch (e: Exception) {
             response.body!!.close()
