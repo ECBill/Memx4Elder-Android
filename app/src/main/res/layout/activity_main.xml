@@ -97,18 +97,25 @@
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintVertical_bias="0.0" />
 
-                    <TextView
-                        android:id="@+id/state_text"
+                    <ScrollView
+                        android:id="@+id/state_scroll"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
-                        android:layout_margin="4dp"
                         android:layout_weight="1"
-                        android:background="@color/black"
-                        android:padding="4dp"
-                        android:text="State:"
-                        android:textColor="@color/white"
-                        android:textSize="14sp" />
+                        android:background="@color/black">
 
+                        <TextView
+                            android:id="@+id/state_text"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_margin="4dp"
+                            android:background="@color/black"
+                            android:padding="4dp"
+                            android:text="State:"
+                            android:textColor="@color/white"
+                            android:textSize="14sp"
+                            android:isScrollContainer="true"/>
+                    </ScrollView>
                 </LinearLayout>
 
                 <TextView
