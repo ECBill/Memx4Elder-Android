@@ -34,8 +34,10 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.databinding.DataBindingUtil
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import com.jiangdg.ausbc.utils.ToastUtils
 import com.jiangdg.ausbc.utils.Utils
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +50,7 @@ import life.memx.chat_external.services.AudioRecording
 import life.memx.chat_external.services.ExCamFragment
 import life.memx.chat_external.utils.NetUtils
 import life.memx.chat_external.utils.TimerUtil
+import life.memx.chat_external.view.PerformanceMonitorViewModel
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -75,10 +78,6 @@ class MainActivity : AppCompatActivity() {
 
     private val TAG: String = MainActivity::class.java.simpleName
     private var netUtils: NetUtils? = null
-    private var uploadTime = 0L
-    private var requestTime = 0L
-    private var tvClientCost: TextView? = null
-    private var tvServerSpeed: TextView? = null
     private var dlContainer: DrawerLayout? = null
     private var uid: String = ""
 
@@ -96,6 +95,7 @@ class MainActivity : AppCompatActivity() {
         Manifest.permission.RECORD_AUDIO,
     )
     private lateinit var viewBinding: ActivityMainBinding
+    private lateinit var performanceMonitorView: PerformanceMonitorViewModel
 
     private lateinit var pullResponseJob: Job   // this is used to handle pullResponse task
 
@@ -218,7 +218,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        viewBinding = DataBindingUtil.setContentView(this, R.layout.activity_main)
+        viewBinding.lifecycleOwner = this
+
+
         // init UI
         uid = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
         val sharedPreferences = getSharedPreferences("data", MODE_PRIVATE)
@@ -228,6 +231,8 @@ class MainActivity : AppCompatActivity() {
         registerCameraSwitch()
         registerAudioSwitch()
         registerServerSpinner()
+        registerPerformanceMonitor()
+
 //        replaceDemoFragment(DemoMultiCameraFragment())
         replaceDemoFragment(imageCapturer)
 
@@ -409,8 +414,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun registerUserText() {
-        tvClientCost = findViewById(R.id.tvClientCost)
-        tvServerSpeed = findViewById(R.id.tvServerSpeed)
         userText = findViewById(R.id.user_text)
         userText?.setText(uid)
         userTextBtn = findViewById(R.id.upload_user_text)
@@ -450,6 +453,12 @@ class MainActivity : AppCompatActivity() {
                 ).show();
             }
         }
+    }
+
+    private fun registerPerformanceMonitor() {
+        performanceMonitorView = ViewModelProvider(this)[PerformanceMonitorViewModel::class.java]
+        viewBinding.performanceMonitor = performanceMonitorView
+        performanceMonitorView.reset()
     }
 
     private fun registerServerSpinner() {
@@ -665,7 +674,7 @@ class MainActivity : AppCompatActivity() {
             requestBody.addFormDataPart("scene_file", sceneFile.name, body)
         }
 
-        var currentMills = System.currentTimeMillis()
+        val currentMills = System.currentTimeMillis()
 
         val request = Request.Builder().url(url).post(requestBody.build()).build()
         client.newCall(request).enqueue(object : Callback {
@@ -676,12 +685,8 @@ class MainActivity : AppCompatActivity() {
             override fun onResponse(call: Call, response: Response) {
                 response.body!!.close()
                 //网络
-                uploadTime = System.currentTimeMillis() - currentMills
-                //网络
-                runOnUiThread {
-                    tvServerSpeed?.text =
-                        "请求服务端用时：${requestTime}毫秒\n上传耗时：${uploadTime}毫秒"
-                }
+                val uploadTime = System.currentTimeMillis() - currentMills
+                performanceMonitorView.setUploadDelay(uploadTime)
             }
         })
     }
@@ -853,8 +858,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pullResponse() {
-        var startMills = System.currentTimeMillis()//网络
-        var url = "$server_url/response/$uid?is_first=$is_first"
+        val startMills = System.currentTimeMillis()//网络
+        val url = "$server_url/response/$uid?is_first=$is_first"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {
@@ -883,13 +888,8 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 //网络
-                requestTime = System.currentTimeMillis() - startMills
-                Log.e("HHH", "" + requestTime)
-                //网络
-                runOnUiThread {
-                    tvServerSpeed?.text =
-                        "请求服务端用时：${requestTime}毫秒\n上传耗时：${uploadTime}毫秒"
-                }
+                val requestTime = System.currentTimeMillis() - startMills
+                performanceMonitorView.setPullDelay(requestTime)
 
                 response.body!!.close()
             }
@@ -909,9 +909,6 @@ class MainActivity : AppCompatActivity() {
         val call = client.newCall(request)
         val response = call.execute()
 
-        runOnUiThread {
-            tvServerSpeed?.text = "请求服务端用时：${requestTime}毫秒\n上传耗时：${uploadTime}毫秒"
-        }
         val input = response.body!!.byteStream()
         val buffer = BufferedReader(InputStreamReader(input))
         try {
@@ -925,6 +922,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 Log.i(TAG, "pullStreamResponse: $url")
 
+                // TODO: 统计每一行的传输耗时
                 val strBuffer = buffer.readLine() ?: break
                 Log.i(TAG, "pullStreamResponse: $strBuffer")
                 val responseObj = JSONObject(strBuffer)
@@ -940,15 +938,10 @@ class MainActivity : AppCompatActivity() {
                         voiceQueue.clear()
                     } else if (text == "[UNDER_PROCESSING]") {
                         timerUtil.startTimer(TIMER_SERVER_PROCESSING)
-                        Log.i("onResponse", "start timer")
                     } else {
                         val costMilSecs = timerUtil.stopTimer(TIMER_SERVER_PROCESSING)
                         Log.i("onResponse", "stop timer $costMilSecs")
-                        runOnUiThread {
-                            if (costMilSecs > 10) {
-                                tvClientCost?.text = "体感耗时：${costMilSecs}毫秒"
-                            }
-                        }
+                        performanceMonitorView.setProcessingDelay(costMilSecs)
                     }
                     voiceQueue.add(voice)
                 }
