@@ -19,6 +19,9 @@ import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.text.Html
+import android.text.SpannableString
+import android.text.Spanned
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -27,6 +30,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
@@ -100,10 +104,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pullResponseJob: Job   // this is used to handle pullResponse task
 
     companion object {
+        // Permission codes
         private const val PERMISSIONS_REQUEST_CODE = 10
         private const val REQUEST_CAMERA = 0
         private const val REQUEST_STORAGE = 1
         private const val TIMER_SERVER_PROCESSING = 1
+
+        // The message types shown in the state TextView
+        private const val LOGMSG = 0
+        private const val INFOMSG = 1
+        private const val ERRMSG = 2
     }
 
     private var mWakeLock: PowerManager.WakeLock? = null
@@ -133,9 +143,9 @@ class MainActivity : AppCompatActivity() {
     private var serverSpinner: Spinner? = null
 
     private var responseText: TextView? = null
-    private var stateText: TextView? = null     // To show whether it is "waiting for interruption"
     private var userTextBtn: Button? = null
     private var responseQueue: Queue<String> = LinkedList<String>()
+    private var stateQueue: Queue<String> = LinkedList<String>()
 
     private lateinit var speechRecognizer: SpeechRecognizer
     private var isListening = false     // whether the SpeechRecognizer is listening to interruption
@@ -243,8 +253,7 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle) {
                 Log.i("SpeechRecognition", "Speech ready!")
-                setStateText("Interrupt Listener: start listening\n" +
-                             "Interruption words: yes/no/ok/stop")
+                setStateText("Interrupt Listener: start listening", true)
             }
 
             override fun onBeginningOfSpeech() {}
@@ -255,39 +264,39 @@ class MainActivity : AppCompatActivity() {
                 when (error) {
                     1 -> {
                         Log.e("SpeechRecognition", "1: Network timeout!")
-                        setStateText("Interrupt Listener: network timeout")
+                        setStateText("Interrupt Listener: network timeout",true, ERRMSG)
                     }
                     2 -> {
                         Log.e("SpeechRecognition", "2: Could not find Network!")
-                        setStateText("Interrupt Listener: network not found")
+                        setStateText("Interrupt Listener: network not found",true, ERRMSG)
                     }
                     3 -> {
                         Log.e("SpeechRecognition", "3: Audio recording error!")
-                        setStateText("Interrupt Listener: recording error")
+                        setStateText("Interrupt Listener: recording error",true, ERRMSG)
                     }
                     4 -> {
                         Log.e("SpeechRecognition", "4: Server error!")
-                        setStateText("Interrupt Listener: server error")
+                        setStateText("Interrupt Listener: server error",true, ERRMSG)
                     }
                     5 -> {
                         Log.e("SpeechRecognition", "5: Other client side errors!")
-                        setStateText("Interrupt Listener: app error")
+                        setStateText("Interrupt Listener: app error",true, ERRMSG)
                     }
                     6 -> {
                         Log.e("SpeechRecognition", "6: Speech input timeout!")
-                        setStateText("Interrupt Listener: speech timeout")
+//                        setStateText("Interrupt Listener: speech timeout",true)
                     }
                     7 -> {
                         Log.e("SpeechRecognition", "7: No detected & matched speech results!")
-                        setStateText("Interrupt Listener: no speech detected")
+//                        setStateText("Interrupt Listener: no speech detected",true)
                     }
                     8 -> {
                         Log.e("SpeechRecognition", "8: RecognitionService busy!")
-                        setStateText("Interrupt Listener: service busy")
+                        setStateText("Interrupt Listener: service busy",true, ERRMSG)
                     }
                     9 -> {
                         Log.e("SpeechRecognition", "9: Insufficient permissions!")
-                        setStateText("Interrupt Listener: no permission")
+                        setStateText("Interrupt Listener: no permission",true, ERRMSG)
                     }
                 }
             }
@@ -304,7 +313,7 @@ class MainActivity : AppCompatActivity() {
                     } else if (interruptKeyword(matches?.get(0)!!)) {
                         // the recognized word matches the interruption instruction, set flag
                         isInterrupted = true
-                        setStateText("Interrupt Listener: keywords detected!")
+                        setStateText("Interrupt Listener: keywords detected!",true, INFOMSG)
                         // send a message to the server to set user status to INTERRUPT
                         var url = "$server_url/interrupt/$uid"
                         val client = OkHttpClient()
@@ -321,6 +330,8 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         // the recognized word doesn't match the interruption instruction
                         Log.i("SpeechRecognition", "Interruption instruction not match!")
+                        setStateText("Interrupt Listener detected:"+matches?.get(0),
+                                     true, INFOMSG)
                         speechRecognizer.startListening(mRecognitionIntent)
                     }
                 } else {
@@ -351,7 +362,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.LENGTH_LONG
             ).show();
         }
-        setStateText("State: Waiting for voice.")
+        setStateText("State: Waiting for voice.",true)
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         useBuiltinSpeaker()
@@ -415,7 +426,7 @@ class MainActivity : AppCompatActivity() {
                     audioRecorder.setNeedRecording(true)
                     audioRecorder.startRecording()
                     Log.d(TAG, "setNeedRecording: true")
-                    setStateText("State: Waiting for voice.")
+                    setStateText("State: Waiting for voice.", true)
                     Toast.makeText(
                         applicationContext, "open audio", Toast.LENGTH_SHORT
                     ).show();
@@ -423,7 +434,7 @@ class MainActivity : AppCompatActivity() {
                     audioRecorder.setNeedRecording(false)
                     audioRecorder.stopRecording()
                     Log.d(TAG, "setNeedRecording: false")
-                    setStateText("State: stop recording audio.")
+                    setStateText("State: stop recording audio.", true)
                     Toast.makeText(
                         applicationContext, "close audio", Toast.LENGTH_SHORT
                     ).show();
@@ -512,9 +523,45 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun setStateText(text: String) {
-        stateText = findViewById(R.id.state_text)
-        runOnUiThread { stateText?.setText(text) }
+    private fun setStateText(text: String, append:Boolean=false, type:Int=LOGMSG) {
+        // Set color of the string according to message type
+        var htmlText: String = ""
+        when (type) {
+            INFOMSG -> htmlText="<font color='yellow'>$text</font>"
+            ERRMSG -> htmlText="<font color='red'>$text</font>"
+            LOGMSG -> htmlText=text
+            else -> {
+                htmlText=text
+                Log.e(TAG, "message type not allowed!")
+            }
+        }
+
+        // Decide whether to append msg or clear the state window
+        val stateText: TextView? = findViewById(R.id.state_text)
+        val stateScroll: ScrollView? = findViewById(R.id.state_scroll)
+        if(append) {
+            stateQueue.add(htmlText)
+        } else {
+            stateQueue.clear()
+            stateQueue.add(htmlText)
+        }
+
+        // Concat all the html texts and show the state
+        var displaySpan: Spanned
+        var displayText = ""
+        if (stateQueue.size >= 30) {
+            stateQueue.remove()
+        }
+        for (item in stateQueue) {
+            displayText += "$item<br>"
+        }
+        displaySpan = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            Html.fromHtml(displayText,Html.FROM_HTML_MODE_LEGACY);
+        } else {
+            Html.fromHtml(displayText);
+        }
+        runOnUiThread { stateText?.setText(displaySpan) }
+        stateScroll?.fullScroll(View.FOCUS_DOWN)
     }
 
     private fun setResponseText(text: String) {
@@ -558,7 +605,7 @@ class MainActivity : AppCompatActivity() {
             Utils.wakeUnLock(this)
         }
         audioRecorder.stopRecording()
-        setStateText("State: stop recording audio.")
+        setStateText("State: stop recording audio.", true)
         imageCapturer.stopCapturing()
     }
 
@@ -567,7 +614,7 @@ class MainActivity : AppCompatActivity() {
         imageCapturer.startCapturing()
         // imageCapturer.setImageSize(640, 480) //TODO: set image size
         audioRecorder.startRecording()
-        setStateText("State: Waiting for voice.")
+        setStateText("State: Waiting for voice.",true)
 
         pullResponseTask()
 
@@ -788,7 +835,7 @@ class MainActivity : AppCompatActivity() {
                                 isListening = false
                                 Log.i("SpeechRecognition", "Speaking finished")
                                 audioRecorder.startRecording()
-                                setStateText("State: Waiting for voice.")
+                                setStateText("State: Waiting for voice.",true)
                             }
                             break
                         }
@@ -810,7 +857,7 @@ class MainActivity : AppCompatActivity() {
                         // stop recording when the response is played
                         Log.i("SpeechRecognition", "stopRecording")
                         audioRecorder.stopRecording()
-                        setStateText("State: Speaking, waiting for interruption")
+                        setStateText("State: Speaking, waiting for interruption",true)
                     }
 
                     // start playing the response audio
