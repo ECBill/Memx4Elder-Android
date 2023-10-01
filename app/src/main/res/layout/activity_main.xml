@@ -166,23 +166,6 @@
                 android:textSize="24sp" />
 
             <TextView
-                android:id="@+id/tvPullDelay"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="10dp"
-                android:text="@{performanceMonitor.pullDelay}"
-                android:textSize="24sp" />
-
-            <TextView
-                android:id="@+id/tvProcessingDelay"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="10dp"
-                android:text="@{performanceMonitor.processingDelay}"
-                android:textSize="24sp" />
-
-            <TextView
-                android:id="@+id/tvAsrDelay"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="10dp"
@@ -190,12 +173,46 @@
                 android:textSize="24sp" />
 
             <TextView
-                android:id="@+id/tvTtsDelay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.promptDelay}"
+                android:textSize="24sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.gptDelay}"
+                android:textSize="24sp" />
+
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="10dp"
                 android:text="@{performanceMonitor.ttsDelay}"
                 android:textSize="24sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.pullDelay}"
+                android:textSize="24sp" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_margin="10sp"
+                android:background="@android:color/darker_gray" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.processingDelay}"
+                android:textSize="24sp" />
+
+
         </LinearLayout>
 
     </androidx.drawerlayout.widget.DrawerLayout>

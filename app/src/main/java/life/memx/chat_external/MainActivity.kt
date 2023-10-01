@@ -1027,6 +1027,18 @@ class MainActivity : AppCompatActivity() {
                     Log.i("onResponse", res.toString())
                     val text = res.getJSONObject("message").getString("text")
                     val voice = res.getJSONObject("message").getString("voice")
+
+                    // 设置延迟统计信息
+                    if (res.has("extra")) {
+                        val extra = res.getJSONObject("extra")
+                        val extraMap = mutableMapOf<String, String>()
+                        val keys = extra.keys()
+                        while (keys.hasNext()) {
+                            val key = keys.next()
+                            extraMap[key] = extra.getString(key)
+                        }
+                        performanceMonitorView.setExtraStatistics(extraMap)
+                    }
                     Log.i("onResponse voice: ", voice)
                     setResponseText(text)
 
