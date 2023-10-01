@@ -20,7 +20,7 @@ class PerformanceMonitorViewModel :ViewModel(){
     }
     fun setProcessingDelay(delay_ms: Long) {
         if (delay_ms > 10) {
-            processingDelay.set("体感等待时间：$delay_ms ms" )
+            processingDelay.set("体感等待时间(咚声之后)：$delay_ms ms" )
         }
     }
 
