@@ -628,9 +628,10 @@ class MainActivity : AppCompatActivity() {
         mWakeLock?.apply {
             Utils.wakeUnLock(this)
         }
-        audioRecorder.stopRecording()
-        setStateText("State: stop recording audio.", true)
-        imageCapturer.stopCapturing()
+//        audioRecorder.stopRecording()
+//        imageCapturer.stopCapturing()
+//        setStateText("State: stop recording audio.", true)
+        setStateText("State: stop event triggered.", true)
     }
 
 
