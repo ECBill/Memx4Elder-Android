@@ -300,7 +300,7 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer = SpeechRecognizerSetup.defaultSetup()
             .setAcousticModel(File(assetsDir, "models/en-us-ptm"))
             .setDictionary(File(assetsDir, "models/lm/words.dic"))
-            .setKeywordThreshold(1.0E-10F) // set lower to make 'stop' easier to be detected
+            .setKeywordThreshold(1.0E-15F) // set lower to make 'stop' easier to be detected
             // Uncomment for a lot of raw logging (takes up a lot of space on the device)
             // .setRawLogDir(assetsDir)
             .recognizer
