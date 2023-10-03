@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "life.memx.chat_external"
-        minSdk 21
+        minSdk 23
         targetSdk 32
         versionCode 1
         versionName "1.0"
@@ -76,5 +76,8 @@ dependencies {
     implementation 'com.github.jiangdongguo.AndroidUSBCamera:libausbc:3.3.3'
     implementation 'com.github.jiangdongguo.AndroidUSBCamera:libutils:3.3.3'
     implementation "com.github.CymChad:BaseRecyclerViewAdapterHelper:2.9.50"
-
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.15.1'
+    implementation 'com.github.gkonovalov.android-vad:silero:2.0.3'
+//    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation files('libs/pocketsphinx-android-5prealpha-release.aar')
 }

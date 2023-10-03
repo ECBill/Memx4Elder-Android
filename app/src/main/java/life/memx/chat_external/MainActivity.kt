@@ -17,8 +17,8 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
+//import android.speech.RecognizerIntent
+//import android.speech.SpeechRecognizer
 import android.text.Html
 import android.text.SpannableString
 import android.text.Spanned
@@ -44,6 +44,15 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.jiangdg.ausbc.utils.ToastUtils
 import com.jiangdg.ausbc.utils.Utils
+import com.konovalov.vad.silero.Vad
+import com.konovalov.vad.silero.VadListener
+import com.konovalov.vad.silero.config.FrameSize
+import com.konovalov.vad.silero.config.Mode
+import edu.cmu.pocketsphinx.Assets;
+import edu.cmu.pocketsphinx.Hypothesis;
+import edu.cmu.pocketsphinx.SpeechRecognizer;
+import edu.cmu.pocketsphinx.SpeechRecognizerSetup;
+import com.konovalov.vad.silero.config.SampleRate.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -51,6 +60,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import life.memx.chat_external.databinding.ActivityMainBinding
 import life.memx.chat_external.services.AudioRecording
+import life.memx.chat_external.services.VadDetector
 import life.memx.chat_external.services.ExCamFragment
 import life.memx.chat_external.utils.NetUtils
 import life.memx.chat_external.utils.TimerUtil
@@ -78,6 +88,7 @@ import java.util.TimerTask
 import java.util.concurrent.TimeUnit
 
 
+
 class MainActivity : AppCompatActivity() {
 
     private val TAG: String = MainActivity::class.java.simpleName
@@ -100,7 +111,7 @@ class MainActivity : AppCompatActivity() {
     )
     private lateinit var viewBinding: ActivityMainBinding
     private lateinit var performanceMonitorView: PerformanceMonitorViewModel
-
+//    private lateinit var vadDetector: VadDetector
     private lateinit var pullResponseJob: Job   // this is used to handle pullResponse task
 
     companion object {
@@ -152,17 +163,87 @@ class MainActivity : AppCompatActivity() {
     private var isInterrupted = false   // whether the interruption is detected
     private var updateUrl = false       // whether need to update the url for long http connection
 
-    private val mRecognitionIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-        putExtra(
-            RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,
-            TimeUnit.SECONDS.toMillis(10)
-        )
-        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-    }
+//    private val mRecognitionIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+//        putExtra(
+//            RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,
+//            TimeUnit.SECONDS.toMillis(10)
+//        )
+//        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+//    }
 
     private lateinit var audioManager: AudioManager
     private val timerUtil = TimerUtil()
 
+    private val mRecognizerListener: edu.cmu.pocketsphinx.RecognitionListener = object :
+        edu.cmu.pocketsphinx.RecognitionListener {
+        override fun onBeginningOfSpeech() {
+            setStateText("State: onBeginningOfSpeech()", true)
+        }
+
+        override fun onEndOfSpeech() {
+            setStateText("State: onEndOfSpeech()", true)
+        }
+
+        override fun onPartialResult(hypothesis: Hypothesis?) {
+            if (hypothesis == null) {
+                return
+            }
+            val text = hypothesis.hypstr
+            Log.d(
+                TAG, String.format(
+                    "onPartialResult: hypothesis string: %s, prob=[%d], bestScore=[%d]",
+                    text, hypothesis.prob, hypothesis.bestScore
+                )
+            )
+            setStateText("State: detected: $text", true, INFOMSG)
+            if (text == "stop") {
+                handleInterrupt(text)
+            } else {
+                Log.e(TAG, "onPartialResult: unexpected hypothesis string: $text")
+                if (text.contains("stop")) {
+                    handleInterrupt(text)
+                    // TODO currently we shutdown after this but it might be necessary to cancel
+                    //  when later we don't
+                    // mRecognizer.cancel();
+                }
+            }
+        }
+
+        override fun onResult(hypothesis: Hypothesis?) {
+            if (hypothesis == null) {
+                Log.e(TAG, "on Result: null")
+                return
+            }
+            Log.d(TAG, "on Result: " + hypothesis.hypstr + " : " + hypothesis.bestScore)
+        }
+
+        override fun onError(e: Exception) {
+            Log.e(TAG, "onError()", e)
+        }
+
+        override fun onTimeout() {
+            Log.d(TAG, "onTimeout()")
+        }
+    }
+
+    private fun handleInterrupt(text: String) {
+        // the recognized word matches the interruption instruction, set flag
+        isInterrupted = true
+        setStateText("Interrupt detected: $text", true, INFOMSG)
+        // send a message to the server to set user status to INTERRUPT
+        var url = "$server_url/interrupt/$uid"
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Update interruption state error")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+
+            }
+        })
+    }
 
     @RequiresApi(Build.VERSION_CODES.S)
     private fun useBuiltinSpeaker() {
@@ -230,6 +311,18 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         viewBinding = DataBindingUtil.setContentView(this, R.layout.activity_main)
         viewBinding.lifecycleOwner = this
+//        vadDetector = VadDetector(applicationContext)
+        val assets = Assets(application)
+        val assetsDir = assets.syncAssets()
+        speechRecognizer = SpeechRecognizerSetup.defaultSetup()
+            .setAcousticModel(File(assetsDir, "models/en-us-ptm"))
+            .setDictionary(File(assetsDir, "models/lm/words.dic"))
+            .setKeywordThreshold(1.0E-6F) // Uncomment for a lot of raw logging (takes up a lot of space on the device)
+            // .setRawLogDir(assetsDir)
+            .recognizer
+        speechRecognizer.addKeyphraseSearch("HOT_WORD_SEARCH", "stop")
+        speechRecognizer.addListener(mRecognizerListener)
+//        speechRecognizer.startListening("HOT_WORD_SEARCH")
 
 
         // init UI
@@ -254,109 +347,109 @@ class MainActivity : AppCompatActivity() {
 
 
         // Initialize Android native SpeechRecognizer
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-        speechRecognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle) {
-                Log.i("SpeechRecognition", "Speech ready!")
-                setStateText("Interrupt Listener: start listening", true)
-            }
-
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray) {}
-            override fun onEndOfSpeech() {}
-            override fun onError(error: Int) {
-                when (error) {
-                    1 -> {
-                        Log.e("SpeechRecognition", "1: Network timeout!")
-                        setStateText("Interrupt Listener: network timeout", true, ERRMSG)
-                    }
-
-                    2 -> {
-                        Log.e("SpeechRecognition", "2: Could not find Network!")
-                        setStateText("Interrupt Listener: network not found", true, ERRMSG)
-                    }
-
-                    3 -> {
-                        Log.e("SpeechRecognition", "3: Audio recording error!")
-                        setStateText("Interrupt Listener: recording error", true, ERRMSG)
-                    }
-
-                    4 -> {
-                        Log.e("SpeechRecognition", "4: Server error!")
-                        setStateText("Interrupt Listener: server error", true, ERRMSG)
-                    }
-
-                    5 -> {
-                        Log.e("SpeechRecognition", "5: Other client side errors!")
-                        setStateText("Interrupt Listener: app error", true, ERRMSG)
-                    }
-
-                    6 -> {
-                        Log.e("SpeechRecognition", "6: Speech input timeout!")
-//                        setStateText("Interrupt Listener: speech timeout",true)
-                    }
-
-                    7 -> {
-                        Log.e("SpeechRecognition", "7: No detected & matched speech results!")
-//                        setStateText("Interrupt Listener: no speech detected",true)
-                    }
-
-                    8 -> {
-                        Log.e("SpeechRecognition", "8: RecognitionService busy!")
-                        setStateText("Interrupt Listener: service busy", true, ERRMSG)
-                    }
-
-                    9 -> {
-                        Log.e("SpeechRecognition", "9: Insufficient permissions!")
-                        setStateText("Interrupt Listener: no permission", true, ERRMSG)
-                    }
-                }
-            }
-
-            override fun onResults(results: Bundle) {
-                if (isListening) {
-                    // at this time, speechRecognizer should still be listening
-                    val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    Log.d("SpeechRecognition", "Recognized text: ${matches?.get(0)}")
-
-                    if (matches?.get(0) == null) {
-                        // this trigger of onResults() is due to the limited API calling duration
-                        speechRecognizer.startListening(mRecognitionIntent)
-                    } else if (interruptKeyword(matches?.get(0)!!)) {
-                        // the recognized word matches the interruption instruction, set flag
-                        isInterrupted = true
-                        setStateText("Interrupt Listener: keywords detected!", true, INFOMSG)
-                        // send a message to the server to set user status to INTERRUPT
-                        var url = "$server_url/interrupt/$uid"
-                        val client = OkHttpClient()
-                        val request = Request.Builder().url(url).build()
-                        client.newCall(request).enqueue(object : Callback {
-                            override fun onFailure(call: Call, e: IOException) {
-                                Log.e(TAG, "Update interruption state error")
-                            }
-
-                            override fun onResponse(call: Call, response: Response) {
-
-                            }
-                        })
-                    } else {
-                        // the recognized word doesn't match the interruption instruction
-                        Log.i("SpeechRecognition", "Interruption instruction not match!")
-                        setStateText(
-                            "Interrupt Listener detected:" + matches?.get(0),
-                            true, INFOMSG
-                        )
-                        speechRecognizer.startListening(mRecognitionIntent)
-                    }
-                } else {
-                    // the speechRecognizer should be closed now
-                }
-            }
-
-            override fun onPartialResults(partialResults: Bundle) {}
-            override fun onEvent(eventType: Int, params: Bundle) {}
-        })
+//        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+//        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+//            override fun onReadyForSpeech(params: Bundle) {
+//                Log.i("SpeechRecognition", "Speech ready!")
+//                setStateText("Interrupt Listener: start listening", true)
+//            }
+//
+//            override fun onBeginningOfSpeech() {}
+//            override fun onRmsChanged(rmsdB: Float) {}
+//            override fun onBufferReceived(buffer: ByteArray) {}
+//            override fun onEndOfSpeech() {}
+//            override fun onError(error: Int) {
+//                when (error) {
+//                    1 -> {
+//                        Log.e("SpeechRecognition", "1: Network timeout!")
+//                        setStateText("Interrupt Listener: network timeout", true, ERRMSG)
+//                    }
+//
+//                    2 -> {
+//                        Log.e("SpeechRecognition", "2: Could not find Network!")
+//                        setStateText("Interrupt Listener: network not found", true, ERRMSG)
+//                    }
+//
+//                    3 -> {
+//                        Log.e("SpeechRecognition", "3: Audio recording error!")
+//                        setStateText("Interrupt Listener: recording error", true, ERRMSG)
+//                    }
+//
+//                    4 -> {
+//                        Log.e("SpeechRecognition", "4: Server error!")
+//                        setStateText("Interrupt Listener: server error", true, ERRMSG)
+//                    }
+//
+//                    5 -> {
+//                        Log.e("SpeechRecognition", "5: Other client side errors!")
+//                        setStateText("Interrupt Listener: app error", true, ERRMSG)
+//                    }
+//
+//                    6 -> {
+//                        Log.e("SpeechRecognition", "6: Speech input timeout!")
+////                        setStateText("Interrupt Listener: speech timeout",true)
+//                    }
+//
+//                    7 -> {
+//                        Log.e("SpeechRecognition", "7: No detected & matched speech results!")
+////                        setStateText("Interrupt Listener: no speech detected",true)
+//                    }
+//
+//                    8 -> {
+//                        Log.e("SpeechRecognition", "8: RecognitionService busy!")
+//                        setStateText("Interrupt Listener: service busy", true, ERRMSG)
+//                    }
+//
+//                    9 -> {
+//                        Log.e("SpeechRecognition", "9: Insufficient permissions!")
+//                        setStateText("Interrupt Listener: no permission", true, ERRMSG)
+//                    }
+//                }
+//            }
+//
+//            override fun onResults(results: Bundle) {
+//                if (isListening) {
+//                    // at this time, speechRecognizer should still be listening
+//                    val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+//                    Log.d("SpeechRecognition", "Recognized text: ${matches?.get(0)}")
+//
+//                    if (matches?.get(0) == null) {
+//                        // this trigger of onResults() is due to the limited API calling duration
+//                        speechRecognizer.startListening(mRecognitionIntent)
+//                    } else if (interruptKeyword(matches?.get(0)!!)) {
+//                        // the recognized word matches the interruption instruction, set flag
+//                        isInterrupted = true
+//                        setStateText("Interrupt detected: ${matches?.get(0)}", true, INFOMSG)
+//                        // send a message to the server to set user status to INTERRUPT
+//                        var url = "$server_url/interrupt/$uid"
+//                        val client = OkHttpClient()
+//                        val request = Request.Builder().url(url).build()
+//                        client.newCall(request).enqueue(object : Callback {
+//                            override fun onFailure(call: Call, e: IOException) {
+//                                Log.e(TAG, "Update interruption state error")
+//                            }
+//
+//                            override fun onResponse(call: Call, response: Response) {
+//
+//                            }
+//                        })
+//                    } else {
+//                        // the recognized word doesn't match the interruption instruction
+//                        Log.i("SpeechRecognition", "Interruption instruction not match!")
+//                        setStateText(
+//                            "Interrupt Listener detected:" + matches?.get(0),
+//                            true, INFOMSG
+//                        )
+//                        speechRecognizer.startListening(mRecognitionIntent)
+//                    }
+//                } else {
+//                    // the speechRecognizer should be closed now
+//                }
+//            }
+//
+//            override fun onPartialResults(partialResults: Bundle) {}
+//            override fun onEvent(eventType: Int, params: Bundle) {}
+//        })
 
         Log.i(TAG, "uid: $uid")
 
@@ -830,11 +923,7 @@ class MainActivity : AppCompatActivity() {
         pullResponseJob = GlobalScope.launch {
             pullResponseLoop()
         }
-//        Timer().schedule(object : TimerTask() {
-//            override fun run() {
-//                pullResponse()
-//            }
-//        }, 0, 500)
+
         GlobalScope.launch {
             while (true) {
                 try {
@@ -850,14 +939,20 @@ class MainActivity : AppCompatActivity() {
                         if (System.currentTimeMillis() - startTime >= timeThresh) {
                             // if exceeds 0.5 secs, this is treated as the end of the response
                             // stop listening, restart recording
-                            withContext(Dispatchers.Main) {
-                                Log.i("SpeechRecognition", "end listening")
-                                speechRecognizer.cancel()
-                                isListening = false
-                                Log.i("SpeechRecognition", "Speaking finished")
-                                audioRecorder.startRecording()
-                                setStateText("State: Waiting for voice.", true)
-                            }
+                            speechRecognizer.cancel()
+                            isListening = false
+                            Log.i("SpeechRecognition", "Speaking finished")
+                            audioRecorder.startRecording()
+                            setStateText("State: Waiting for voice.", true)
+//                            withContext(Dispatchers.Main) {
+//                                Log.i("SpeechRecognition", "end listening")
+////                                speechRecognizer.cancel()
+////                                vadDetector.stop()
+//                                isListening = false
+//                                Log.i("SpeechRecognition", "Speaking finished")
+//                                audioRecorder.startRecording()
+//                                setStateText("State: Waiting for voice.", true)
+//                            }
                             break
                         }
                     }
@@ -869,16 +964,20 @@ class MainActivity : AppCompatActivity() {
                     if (!isListening) {
                         // Start listening for interruptions util the end of response
                         // This will only be executed at the beginning of the response
-                        withContext(Dispatchers.Main) {
-                            Log.i("SpeechRecognition", "Start listening for interruption")
-                            isListening = true
-                            speechRecognizer.startListening(mRecognitionIntent)
-                        }
+//                        vadDetector.startListening()
+                        speechRecognizer.startListening("HOT_WORD_SEARCH")
+                        isListening = true
+//                        withContext(Dispatchers.Main) {
+//                            Log.i("SpeechRecognition", "Start listening for interruption")
+//
+//                            isListening = true
+//                            speechRecognizer.startListening(mRecognitionIntent)
+//                        }
 
                         // stop recording when the response is played
                         Log.i("SpeechRecognition", "stopRecording")
                         audioRecorder.stopRecording()
-                        setStateText("State: Speaking, waiting for interruption", true)
+                        setStateText("State: Speaking, say \'stop\' to interrupt", true)
                     }
 
                     // start playing the response audio
@@ -903,20 +1002,6 @@ class MainActivity : AppCompatActivity() {
                     // Finished playing the audio, stop listening for interruption and
                     // restart recording user's voice for the next utterance
                     mediaPlayer.release()
-
-//                    GlobalScope.launch {
-//                        delay(500)
-//                        withContext(Dispatchers.Main) {
-//                            if (voiceQueue.isEmpty()) {
-//                                Log.i("SpeechRecognition", "end listening")
-//                                speechRecognizer.cancel()
-//                                isListening = false
-//                                Log.i("SpeechRecognition", "Speaking finished")
-//                                setStateText("Waiting for voice")
-//                                audioRecorder.startRecording()
-//                            }
-//                        }
-//                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "playback error: $e")
                     Looper.prepare()
@@ -926,10 +1011,6 @@ class MainActivity : AppCompatActivity() {
                         Toast.LENGTH_LONG
                     ).show();
                     Looper.loop()
-                } finally {
-//                    withContext(Dispatchers.IO) {
-//                        TimeUnit.SECONDS.sleep(1)
-//                    }
                 }
             }
         }
