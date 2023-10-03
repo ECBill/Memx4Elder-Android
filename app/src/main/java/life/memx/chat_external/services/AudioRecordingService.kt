@@ -128,16 +128,6 @@ class VadDetector (private val activity: Context) {
             return
         }
         isListening = true
-//        val isSpeech = vad.isSpeech(audioArray)
-//        vad.setContinuousSpeechListener(audioArray, object: VadListener {
-//            override fun onSpeechDetected() {
-//                Log.e("VadDetector", "Human speech detected!")
-//            }
-//
-//            override fun onNoiseDetected() {
-//                Log.e("VadDetector", "Noise detected!")
-//            }
-//        })
         Thread(Runnable {
             try {
                 while (true) {
@@ -168,6 +158,5 @@ class VadDetector (private val activity: Context) {
         isListening = false
         audioRecord.stop()
         audioRecord.release()
-//        vad.close()
     }
 }
