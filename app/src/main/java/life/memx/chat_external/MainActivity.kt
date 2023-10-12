@@ -1,4 +1,4 @@
-package life.memx.chat
+package life.memx.chat_external
 
 
 import android.Manifest
@@ -27,12 +27,14 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import life.memx.chat.services.AudioRecording
-import life.memx.chat.services.CameraXService
+import life.memx.chat_external.services.AudioRecording
+import life.memx.chat_external.services.CameraXService
+import life.memx.chat_external.utils.NetUtils
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -59,7 +61,8 @@ import java.util.concurrent.TimeUnit
 class MainActivity : AppCompatActivity() {
 
     private val TAG: String = MainActivity::class.java.simpleName
-
+    private var netUtils: NetUtils? = null
+    private var dlContainer: DrawerLayout? = null
     private var uid: String = ""
 
     //    private var server_url: String = "https://gate.luzy.top"

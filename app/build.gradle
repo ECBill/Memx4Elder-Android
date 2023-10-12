@@ -4,10 +4,10 @@ plugins {
 }
 
 android {
-    compileSdk 32
+    compileSdk 33
 
     defaultConfig {
-        applicationId "life.memx.chat"
+        applicationId "life.memx.chat_external"
         minSdk 21
         targetSdk 32
         versionCode 1

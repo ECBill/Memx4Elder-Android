@@ -1,4 +1,4 @@
-package life.memx.chat.services
+package life.memx.chat_external.services
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.Size
-import android.view.Surface
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.Camera
@@ -21,7 +20,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import com.google.common.util.concurrent.ListenableFuture
-import life.memx.chat.R
+import life.memx.chat_external.R
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Queue
