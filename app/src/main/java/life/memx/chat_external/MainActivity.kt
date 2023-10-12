@@ -40,6 +40,9 @@ import androidx.databinding.DataBindingUtil
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.alibaba.idst.nui.AsrResult
+import com.alibaba.idst.nui.Constants
+import com.alibaba.idst.nui.INativeFileTransCallback
 import com.jiangdg.ausbc.utils.ToastUtils
 import com.jiangdg.ausbc.utils.Utils
 import edu.cmu.pocketsphinx.Assets;
@@ -54,6 +57,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import life.memx.chat_external.databinding.ActivityMainBinding
 import life.memx.chat_external.services.AudioRecording
+import life.memx.chat_external.services.AliAsrRecorder
 import life.memx.chat_external.services.ExCamFragment
 import life.memx.chat_external.utils.NetUtils
 import life.memx.chat_external.utils.TimerUtil
@@ -90,7 +94,7 @@ class MainActivity : AppCompatActivity() {
     private var uid: String = ""
 
     //    private var server_url: String = "https://gate.luzy.top"
-    private var server_url: String = "http://10.176.34.117:9528"
+    private var server_url: String = "http://10.176.34.117:9527"
 //    private var server_url: String = "http://150.158.82.234:7000"
 //    private var server_url: String = "https://samantha.memx.life"
 
@@ -99,6 +103,7 @@ class MainActivity : AppCompatActivity() {
     private val PERMISSIONS_REQUIRED: Array<String> = arrayOf<String>(
         Manifest.permission.READ_EXTERNAL_STORAGE,
         Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        Manifest.permission.MANAGE_EXTERNAL_STORAGE,
         Manifest.permission.CAMERA,
         Manifest.permission.RECORD_AUDIO
     )
@@ -134,7 +139,39 @@ class MainActivity : AppCompatActivity() {
 
     private var audioRecorder = AudioRecording(audioQueue, this)
     private var mediaPlayer = MediaPlayer()
-//    private var testRecorder = testRecorder()
+    private var aliRecorder = AliAsrRecorder(this, server_url, object: INativeFileTransCallback {
+        override fun onFileTransEventCallback(
+            event: Constants.NuiEvent,
+            resultCode: Int,
+            finish: Int,
+            asrResult: AsrResult,
+            taskId: String
+        ) {
+            if (event == Constants.NuiEvent.EVENT_FILE_TRANS_UPLOADED) {
+                Log.e("ali sdk", "完成上传，正在转写...")
+            } else if (event == Constants.NuiEvent.EVENT_FILE_TRANS_RESULT) {
+                Log.e("ali sdk", asrResult.asrResult)
+                val results = JSONObject(asrResult.asrResult)
+                              .getJSONObject("flash_result")
+                              .get("sentences") as JSONArray
+                setStateText("ali: "+results.getJSONObject(0).get("text") as String, true, INFOMSG)
+                for (i in 0 until results.length()){
+                    if (isInterruptKeyword(results.getJSONObject(i).get("text") as String)){
+                        handleInterrupt("ok")
+                        break
+                    }
+                }
+            } else if (event == Constants.NuiEvent.EVENT_ASR_ERROR) {
+                if (resultCode == 240067) {
+                    setStateText("Ali disconnected!", true, ERRMSG)
+                } else if (resultCode==240075){
+                    val errMsg = JSONObject(asrResult.asrResult).get("message")
+                    setStateText(errMsg.toString(), true, INFOMSG)
+                }
+                Log.e("ali sdk", "error $resultCode")
+            }
+        }
+    })
 
     //    private var imageCapturer = ImageCapturing(imageQueue, this)
     //    private var imageCapturer = CameraXService(imageQueue, this)
@@ -148,6 +185,7 @@ class MainActivity : AppCompatActivity() {
     private var serverSpinner: Spinner? = null
 
     private var responseText: TextView? = null
+    private var responseScroll: ScrollView? = null
     private var userTextBtn: Button? = null
     private var responseQueue: Queue<String> = LinkedList<String>()
     private var stateQueue: Queue<String> = LinkedList<String>()
@@ -165,14 +203,18 @@ class MainActivity : AppCompatActivity() {
     private val mRecognizerListener: edu.cmu.pocketsphinx.RecognitionListener = object :
         edu.cmu.pocketsphinx.RecognitionListener {
         override fun onBeginningOfSpeech() {
+            aliRecorder.startRecord()
             setStateText("State: Speech Begin", true)
         }
 
         override fun onEndOfSpeech() {
+//            aliRecorder.stopRecord()
             setStateText("State: Speech End", true)
         }
 
         override fun onPartialResult(hypothesis: Hypothesis?) {
+//            speechRecognizer.cancel()
+//            speechRecognizer.startListening("HOT_WORD_SEARCH")
             if (hypothesis == null) {
                 return
             }
@@ -183,13 +225,16 @@ class MainActivity : AppCompatActivity() {
                     text, hypothesis.prob, hypothesis.bestScore
                 )
             )
-            setStateText("State: detected: $text", true, INFOMSG)
-            if (text == "stop" && isListening) {
-                handleInterrupt(text)
+//            setStateText("State: detected: $text", true, INFOMSG)
+            if (text.contains("ok") && isListening) {
+                setStateText("sphinx detected", true, INFOMSG)
+                speechRecognizer.cancel()
+                speechRecognizer.startListening("HOT_WORD_SEARCH")
+//                handleInterrupt(text)
             } else {
                 Log.e(TAG, "onPartialResult: unexpected hypothesis string: $text")
-                if (text.contains("stop") && isListening) {
-                    handleInterrupt(text)
+                if (text.contains("ok") && isListening) {
+//                    handleInterrupt(text)
                     // TODO currently we shutdown after this but it might be necessary to cancel
                     //  when later we don't
                     // mRecognizer.cancel();
@@ -215,38 +260,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleInterrupt(text: String) {
-//        if (!isInterrupted) {
-//            // the recognized word matches the interruption instruction, set flag
-//            isInterrupted = true
-//            setStateText("Interrupt detected: $text", true, INFOMSG)
-//
-//            // send a message to the server to set user status to INTERRUPT
-//            var url = "$server_url/interrupt/$uid"
-//            val client = OkHttpClient()
-//            val request = Request.Builder().url(url).build()
-//            client.newCall(request).enqueue(object : Callback {
-//                override fun onFailure(call: Call, e: IOException) {
-//                    Log.e(TAG, "Update interruption state error")
-//                }
-//                override fun onResponse(call: Call, response: Response) {}
-//            })
-//        }
         setStateText("Interrupt detected: $text", true, INFOMSG)
         isListening = false
-        speechRecognizer.cancel()
-        if (mediaPlayer.isPlaying) {
-            // send a message to the server to set user status to INTERRUPT
-            var url = "$server_url/interrupt/$uid"
-            val client = OkHttpClient()
-            val request = Request.Builder().url(url).build()
-            client.newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    Log.e(TAG, "Update interruption state error")
+//        speechRecognizer.cancel()
+        // send a message to the server to interrupt GPT-4 from generating the response
+        var url = "$server_url/interrupt/$uid"
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Update interruption state error")
+            }
+            override fun onResponse(call: Call, response: Response) {}
+        })
+        try {
+            if (mediaPlayer != null) {
+                if (mediaPlayer.isPlaying){
+                    mediaPlayer.stop()
                 }
-                override fun onResponse(call: Call, response: Response) {}
-            })
+            }
+        } catch (e: Exception) {
+            Log.e("Handle interruption", "Exception: $e")
         }
-        mediaPlayer.stop()
+
         voiceQueue.clear()
         if (currentResId != "no response"){
             // prevent current message id to be played
@@ -254,7 +290,7 @@ class MainActivity : AppCompatActivity() {
             setStateText("banning: $banResId", true)
         }
         isListening = true
-        speechRecognizer.startListening("HOT_WORD_SEARCH")
+//        speechRecognizer.startListening("HOT_WORD_SEARCH")
     }
 
     @RequiresApi(Build.VERSION_CODES.S)
@@ -341,6 +377,8 @@ class MainActivity : AppCompatActivity() {
 
         netUtils = NetUtils(this@MainActivity)
         dlContainer = findViewById(R.id.dlContainer)
+        var chatlogText: EditText = findViewById(R.id.chatLogText)
+        chatlogText.keyListener = null
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         deleteCache()
@@ -357,7 +395,7 @@ class MainActivity : AppCompatActivity() {
 
         ToastUtils.init(this)
 
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         useBuiltinSpeaker()
         registerAudioManagerListener()
 
@@ -370,16 +408,16 @@ class MainActivity : AppCompatActivity() {
         transaction.commitAllowingStateLoss()
     }
 
-    private fun interruptKeyword(input: String): Boolean {
+    private fun isInterruptKeyword(input: String): Boolean {
         val lowercaseInput = input.lowercase()
-        val keywords = listOf("stop", "ok", "yes", "no", "yeah", "yep")
+//        val keywords = listOf("stop", "ok", "yes", "no", "yeah", "yep")
+        val keywords = listOf("ok")
 
         for (keyword in keywords) {
             if (lowercaseInput.contains(keyword.lowercase())) {
                 return true
             }
         }
-
         return false
     }
 
@@ -472,7 +510,7 @@ class MainActivity : AppCompatActivity() {
                     ).show();
                 }
                 // hide keyboard
-                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.hideSoftInputFromWindow(userText?.windowToken, 0)
             } catch (e: Exception) {
                 Log.e(TAG, "set user text error: $e")
@@ -483,7 +521,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         viewBinding.outerContainer.setOnClickListener { v ->
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.hideSoftInputFromWindow(v?.windowToken, 0)
         }
     }
@@ -501,6 +539,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val server_ips = resources.getStringArray(R.array.server_ips)
                     server_url = server_ips[pos]
+                    aliRecorder.setServerUrl(server_url)
                     Toast.makeText(applicationContext, "server: $server_url", Toast.LENGTH_SHORT)
                         .show();
                     // restart pull response loop
@@ -568,18 +607,31 @@ class MainActivity : AppCompatActivity() {
 
     private fun setResponseText(text: String) {
         responseText = findViewById(R.id.response_text)
+        responseScroll = findViewById(R.id.response_scroll)
         responseQueue.add(text)
 
-        if (responseQueue.size >= 15) {
+        if (responseQueue.size >= 30) {
             responseQueue.remove()
         }
 
         var display_text = ""
         for (item in responseQueue) {
-            display_text += item + "\n"
+            if (item.startsWith("<User>")) {
+                Log.e("display string", item)
+                display_text += "<font color='#FF9900' weight='600'>User: </font>"+
+                                item.substring(7)+"<br>"
+            } else {
+                display_text += "$item<br>"
+            }
         }
-        runOnUiThread { responseText?.setText(display_text) }
-
+        var displaySpan: Spanned
+        displaySpan = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            Html.fromHtml(display_text, Html.FROM_HTML_MODE_LEGACY);
+        } else {
+            Html.fromHtml(display_text);
+        }
+        runOnUiThread { responseText?.setText(displaySpan) }
+        responseScroll?.fullScroll(View.FOCUS_DOWN)
     }
 
     override fun onRequestPermissionsResult(
@@ -615,7 +667,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun run() {
         imageCapturer.startCapturing()
-//        testRecorder.startRecord()
+        aliRecorder.getTokenThenInitAliSDK()    // fetch token and setup ali sdk
+        aliRecorder.initRecorder()              // setup AudioRecorder and start recording
         // imageCapturer.setImageSize(640, 480) //TODO: set image size
         audioRecorder.startRecording()
 
@@ -625,10 +678,10 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer = SpeechRecognizerSetup.defaultSetup()
             .setAcousticModel(File(assetsDir, "models/en-us-ptm-8khz"))
             .setDictionary(File(assetsDir, "models/lm/words.dic"))
-            .setKeywordThreshold(1.0E-15F) // set lower to make 'stop' easier to be detected
+            .setKeywordThreshold(1.0E-10F) // set lower to make 'stop' easier to be detected
             .setSampleRate(8000)
             .recognizer
-        speechRecognizer.addKeyphraseSearch("HOT_WORD_SEARCH", "stop")
+        speechRecognizer.addKeyphraseSearch("HOT_WORD_SEARCH", "ok")
         speechRecognizer.addListener(mRecognizerListener)
         if (speechRecognizer == null) {
             Toast.makeText(
@@ -834,65 +887,20 @@ class MainActivity : AppCompatActivity() {
         GlobalScope.launch {
             while (true) {
                 try {
-//                    var startTime = System.currentTimeMillis()
-//                    val timeThresh = TimeUnit.SECONDS.toMillis(0.5.toLong())
-//                    while (isListening) {
-//                        // if isListening, wait for 0.5 secs to judge the end of the response
-//                        if (!voiceQueue.isEmpty()) {
-//                            // if receive response audio within 0.5 secs, continue processing
-//                            break
-//                        }
-//
-//                        if (System.currentTimeMillis() - startTime >= timeThresh) {
-//                            // if exceeds 0.5 secs, this is treated as the end of the response
-//                            // stop listening, restart recording
-//                            speechRecognizer.cancel()
-//                            isListening = false
-//                            Log.i("SpeechRecognition", "Speaking finished")
-//                            audioRecorder.startRecording()
-//                            setStateText("State: Waiting for voice.", true)
-//                            break
-//                        }
-//                    }
-
                     if (voiceQueue.isEmpty()) {
                         continue
                     }
 
-//                    if (!isListening) {
-//                        // Start listening for interruptions util the end of response
-//                        // This will only be executed at the beginning of the response
-//                        speechRecognizer.startListening("HOT_WORD_SEARCH")
-//                        isListening = true
-//
-//                        // stop recording when the response is played
-//                        Log.i("SpeechRecognition", "stopRecording")
-//                        audioRecorder.stopRecording()
-//                        setStateText("State: Speaking, say \'stop\' to interrupt", true)
-//                    }
-
-                    // start playing the response audio
-//                    val mediaPlayer = MediaPlayer()
                     mediaPlayer.setDataSource(voiceQueue.remove())
                     mediaPlayer.prepare();
                     mediaPlayer.start()
                     audioRecorder.stopRecording()
-                    // listen to whether the interruption flag is set
+                    // waiting until the message is finished playing (or interrupted)
                     while (mediaPlayer.isPlaying) {
-//                        if (isInterrupted) {
-//                            Log.i("SpeechRecognition", "Handling interruption")
-//                            // Stop playing the response audio
-//                            mediaPlayer.stop()
-//                            // Empty the voice queue（注：清不干净，因为当前语音队列并不包含回复中所有的语音包）
-//                            voiceQueue.clear()
-//                            // Reset the flag
-//                            isInterrupted = false
-//                            break
-//                        }
+
                     }
                     audioRecorder.startRecording()
-                    // Finished playing the audio, stop listening for interruption and
-                    // restart recording user's voice for the next utterance
+                    // re-initiate the mediaPlayer to call the setDataSource() next time
                     mediaPlayer.release()
                     mediaPlayer = MediaPlayer()
                 } catch (e: Exception) {
@@ -998,13 +1006,14 @@ class MainActivity : AppCompatActivity() {
                 val res = responseObj.getJSONObject("response")
                 if (status == 1) {
                     Log.i("onResponse", res.toString())
-                    if (res.getJSONObject("message").get("start_time").toString() != "null"){
+                    var resStartTime = res.getJSONObject("message").get("start_time").toString()
+                    if (resStartTime != "null"){
                         // this message is generated by GPT-4, not an inform message (e.g. '[TURN ON]]')
-                        currentResId = res.getJSONObject("message").get("start_time").toString()
+                        currentResId = resStartTime
                         Log.e("onResponse_start time", currentResId)
-                        setStateText("current res id: $currentResId", true)
+                        setStateText("current response id: $currentResId", true)
                     }
-                    if (currentResId == banResId) {
+                    if (resStartTime == banResId) {
                         // if current response id is banned, skip handling it
                         continue
                     }

@@ -1,24 +1,37 @@
 package life.memx.chat_external.services
 
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
-import android.util.Log
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import android.os.Environment
-import java.io.BufferedOutputStream
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 //import com.konovalov.vad.silero.Vad
 //import com.konovalov.vad.silero.VadListener
 //import com.konovalov.vad.silero.config.FrameSize
 //import com.konovalov.vad.silero.config.Mode
 //import com.konovalov.vad.silero.config.SampleRate
+import android.annotation.SuppressLint
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.os.Environment
+import android.provider.Settings
+import android.util.Log
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import com.alibaba.fastjson.JSONException
+import com.alibaba.fastjson.JSONObject
+import com.alibaba.idst.nui.AsrResult
+import com.alibaba.idst.nui.CommonUtils
+import com.alibaba.idst.nui.Constants
+import com.alibaba.idst.nui.INativeFileTransCallback
+import com.alibaba.idst.nui.NativeNui
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import java.io.BufferedOutputStream
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.Queue
 
 
@@ -95,50 +108,184 @@ class AudioRecording internal constructor(
     }
 }
 
-class testRecorder internal constructor() {
-    private val audioSource: Int = 6
+class AliAsrRecorder internal constructor(private val activity: AppCompatActivity,
+                                        private var server_url: String,
+                                        private val interruptHandler: INativeFileTransCallback,
+                                        ) {
+    private val audioSource: Int = MediaRecorder.AudioSource.VOICE_COMMUNICATION
     private val sampleRateInHz: Int = 16000
-    private val channelConfig: Int = 16
-    private val audioFormat: Int = 2
-    private val bufferSizeInBytes: Int = 32000
-    private var isRecording: Boolean = false
+    private val channelConfig: Int = AudioFormat.CHANNEL_IN_MONO
+    private val audioFormat: Int = AudioFormat.ENCODING_PCM_16BIT
+    private val bufferSizeInBytes: Int = 16000              // store 0.5s audio
+    private val fileBufferSize: Int = bufferSizeInBytes*2   // store 1s audio
     private var audioRecorder: AudioRecord? = null
-    private var count = 1
-    private var PCMPath = Environment.getExternalStorageDirectory().path.toString()
-    private var WAVPath = Environment.getExternalStorageDirectory().path.toString()
+//    private var count = 1
+    private var filePath = Environment.getExternalStorageDirectory().path.toString() +
+                           "/Android/data/life.memx.chat_external/"
+    private var PCMPath: String = ""    // store the pcm raw file
+    private var WAVPath: String = ""    // store the wav file (which was sent to ali)
+    // the first half to store 0.5s audio before VAD, the second half to record 0.5s audio after VAD
+    private var fileBuffer = ByteArray(fileBufferSize)
+    private var sdkToken: String = ""
+    private var expireTime: Int = 0
+    var nui_instance = NativeNui()      // Ali SDK
+    var isTriggered: Boolean = false    // whether the VAD is triggered
+    var isInitiated: Boolean = false    // whether the Ali SDK has initiated
 
     @SuppressLint("MissingPermission")
-    private fun initRecorder() {//初始化audioRecord对象
+    fun initRecorder() {
         audioRecorder =
             AudioRecord(audioSource, sampleRateInHz, channelConfig, audioFormat, bufferSizeInBytes)
+        audioRecorder?.startRecording()
+        Thread {
+            // Listening to whether VAD is triggered
+            while (true) {
+                if(!isTriggered || !isInitiated) {
+                    val read = audioRecorder!!.read(fileBuffer, 0, bufferSizeInBytes)
+                } else {
+                    // Ali SDK initiated and VAD triggered, collect second half and send to Ali
+                    val read = audioRecorder!!.read(fileBuffer, bufferSizeInBytes, bufferSizeInBytes)
+                    writeDateTOFile()
+                    copyWaveFile(PCMPath, WAVPath)
+//                    count++
+                    val task_id = ByteArray(32)
+                    nui_instance.startFileTranscriber(genDialogParams(), task_id)
+                    isTriggered = false
+                }
+            }
+        }.start()
     }
 
-    fun startRecord():Int {
-        if (isRecording) {
-            return -1
-        } else{
-            audioRecorder?: initRecorder()
-            Log.e("Test", "init!")
-            audioRecorder?.startRecording()
-            isRecording = true
-            Log.e("Test", "start!")
-            AudioRecordToFile().start()
-            return 0
+    fun refreshAliSDKifNeeded() {
+        val sharedPreferences = activity.getSharedPreferences("data", AppCompatActivity.MODE_PRIVATE)
+        expireTime = sharedPreferences.getInt("expire_time", 0)
+        var currentTime: Long = System.currentTimeMillis()/1000
+        Log.e("ali sdk", "current: $currentTime; expired: $expireTime")
+        if ((expireTime-currentTime)/(60*60)<12){
+            // less than 12 hours to expire time
+            isInitiated = false
+            getTokenThenInitAliSDK()
         }
     }
 
+    fun getTokenThenInitAliSDK() {
+        var url = "$server_url/get_token"
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("ali sdk", "fetch token failed!")
+            }
+            override fun onResponse(call: Call, response: Response) {
+                var responseStr = response.body!!.string()
+                val responseObj = org.json.JSONObject(responseStr)
+                val status = responseObj.getInt("status")
+                if (status == 1) {
+                    sdkToken = responseObj.getString("token")
+                    expireTime = responseObj.getInt("expire_time")
+                    val sharedPreferences = activity.getSharedPreferences("data",
+                        AppCompatActivity.MODE_PRIVATE
+                    )
+                    val editor = sharedPreferences.edit()
+                    editor.putString("token", sdkToken)
+                    editor.putInt("expire_time", expireTime)
+                    editor.commit()
+                    Log.e("ali sdk", sdkToken)
+                    initAliSDK(sdkToken)
+                }
+            }
+        })
+    }
+
+    private fun initAliSDK(token: String) {
+        //这里主动调用完成SDK配置文件的拷贝
+        if (CommonUtils.copyAssetsData(activity)) {
+            Log.i("ali sdk", "copy assets data done")
+        } else {
+            Log.i("ali sdk", "copy assets failed")
+            return
+        }
+
+        //获取工作路径
+        val assets_path = CommonUtils.getModelPath(activity)
+        Log.i(
+            "ali sdk",
+            "use workspace $assets_path"
+        )
+
+        val debug_path: String = filePath
+        //初始化SDK，注意用户需要在Auth.getAliYunTicket中填入相关ID信息才可以使用。
+        val ret: Int = nui_instance.initialize(
+            interruptHandler,
+            genInitParams(assets_path, debug_path, token),
+            Constants.LogLevel.LOG_LEVEL_VERBOSE
+        )
+        Log.i("ali sdk", "result = $ret")
+        if (ret == Constants.NuiResultCode.SUCCESS) {
+            Log.i("ali sdk", "init!")
+            isInitiated = true
+        } else {
+            Log.e("ali sdk", "init failed!")
+        }
+    }
+
+    private fun genInitParams(workpath: String, debugpath: String, token: String): String? {
+        var str = ""
+        try {
+            val `object` = JSONObject()
+            //账号和项目创建
+            //  ak_id ak_secret app_key如何获得,请查看https://help.aliyun.com/document_detail/72138.html
+            `object`.put("app_key", "zS1WMjZMsFpKdGhB") // 必填
+            `object`.put("token", token) // 必填
+            `object`.put(
+                "url", "https://nls-gateway.cn-shanghai.aliyuncs.com/stream/v1/FlashRecognizer"
+            ) // 必填
+            `object`.put(
+                "device_id",
+                Settings.Secure.ANDROID_ID
+            ) // 必填, 推荐填入具有唯一性的id, 方便定位问题。也可用提供Utils.getDeviceId()
+            //工作目录路径，SDK从该路径读取配置文件
+            `object`.put("workspace", workpath) // 必填, 且需要有读写权限
+            //debug目录。当初始化SDK时的save_log参数取值为true时，该目录用于保存中间音频文件
+            `object`.put("debug_path", debugpath)
+            // 这里只能选择FullMix和FullCloud
+            `object`.put("service_mode", Constants.ModeFullCloud) // 必填
+            str = `object`.toString()
+        } catch (e: JSONException) {
+            e.printStackTrace()
+        }
+        Log.i("ali sdk", "InsideUserContext:$str")
+        return str
+    }
+
+    fun setServerUrl(updated_url: String) {
+        server_url = updated_url
+    }
+
+    fun startRecord():Int {
+        refreshAliSDKifNeeded()
+        isTriggered=true
+        return 0
+    }
+
     fun stopRecord() {
+        isTriggered = false
         audioRecorder?.stop()
+    }
+
+    fun releaseRecorder() {
         audioRecorder?.release()
-        isRecording = false
+        isTriggered = false
         audioRecorder = null
     }
 
     private fun writeDateTOFile() {
-        var audioData = ByteArray(bufferSizeInBytes)
-        Log.e("Test", PCMPath)
-        PCMPath = "$PCMPath/RawAudio$count.pcm"
-        WAVPath = "$WAVPath/FinalAudio$count.wav"
+        // just for test, save all the files
+//        PCMPath = "$filePath/RawAudio$count.pcm"
+//        WAVPath = "$filePath/FinalAudio$count.wav"
+
+        PCMPath = "$filePath/RawAudio.pcm"
+        WAVPath = "$filePath/FinalAudio.wav"
         val file = File(PCMPath)
         if (!file.parentFile.exists()) {
             file.parentFile.mkdirs()
@@ -148,32 +295,24 @@ class testRecorder internal constructor() {
         }
         file.createNewFile()
         val out = BufferedOutputStream(FileOutputStream(file))
-        var length = 0
-        while (isRecording && audioRecorder!=null) {
-            length = audioRecorder!!.read(audioData, 0, bufferSizeInBytes)//获取音频数据
-            Log.e("testRecord", length.toString())
-            if (AudioRecord.ERROR_INVALID_OPERATION != length) {
-                out.write(audioData, 0, length)//写入文件
-                out.flush()
-            }
-        }
+        out.write(fileBuffer, 0, fileBuffer.size)
+        out.flush()
         out.close()
-        count++
     }
 
     private fun copyWaveFile(pcmPath: String, wavPath: String) {
 
         var fileIn = FileInputStream(pcmPath)
         var fileOut = FileOutputStream(wavPath)
-        val data = ByteArray(bufferSizeInBytes)
+        val data = ByteArray(fileBufferSize)
         val totalAudioLen = fileIn.channel.size()
         val totalDataLen = totalAudioLen + 36
         writeWaveFileHeader(fileOut, totalAudioLen, totalDataLen)
-        var count = fileIn.read(data, 0, bufferSizeInBytes)
+        var count = fileIn.read(data, 0, fileBufferSize)
         while (count != -1) {
             fileOut.write(data, 0, count)
             fileOut.flush()
-            count = fileIn.read(data, 0, bufferSizeInBytes)
+            count = fileIn.read(data, 0, fileBufferSize)
         }
         fileIn.close()
         fileOut.close()
@@ -233,12 +372,22 @@ class testRecorder internal constructor() {
         out.write(header, 0, 44)
     }
 
-    private inner class AudioRecordToFile : Thread() {
-        override fun run() {
-            super.run()
-            writeDateTOFile()
-            copyWaveFile(PCMPath, WAVPath)
+    private fun genDialogParams(): String? {
+        var params = ""
+        try {
+            val dialog_param = JSONObject()
+            //若想在运行时切换app_key
+            //dialog_param.put("app_key", "");
+            dialog_param["file_path"] = WAVPath
+            val nls_config = JSONObject()
+            nls_config["format"] = "wav"
+            dialog_param["nls_config"] = nls_config
+            params = dialog_param.toString()
+        } catch (e: JSONException) {
+            e.printStackTrace()
         }
+        Log.i("ali sdk", "dialog params: $params")
+        return params
     }
 }
 

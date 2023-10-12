@@ -122,17 +122,31 @@
                     </ScrollView>
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/response_text"
+                <EditText
+                    android:id="@+id/chatLogText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ems="10"
+                    android:layout_marginLeft="15dp"
+                    android:layout_marginRight="15dp"
+                    android:inputType="text"
+                    android:textColor="@color/BLUE_A050"
+                    android:text="Chat logs" />
+
+                <ScrollView
+                    android:id="@+id/response_scroll"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:layout_marginLeft="15dp"
                     android:layout_marginRight="15dp"
-                    android:layout_marginBottom="10dp"
-                    android:hint="Response"
-                    android:isScrollContainer="true" />
-
-
+                    android:layout_marginBottom="10dp">
+                    <TextView
+                        android:id="@+id/response_text"
+                        android:layout_marginTop="-10dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:isScrollContainer="true" />
+                </ScrollView>
             </LinearLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
