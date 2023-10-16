@@ -1,115 +1,246 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!--    <TextView-->
-    <!--        android:layout_width="wrap_content"-->
-    <!--        android:layout_height="wrap_content"-->
-    <!--        android:text="EgoChat"-->
-    <!--        app:layout_constraintBottom_toBottomOf="parent"-->
-    <!--        app:layout_constraintEnd_toEndOf="parent"-->
-    <!--        app:layout_constraintStart_toStartOf="parent"-->
-    <!--        app:layout_constraintTop_toTopOf="parent" />-->
+    <data>
 
-    <!--    <ImageView-->
-    <!--        android:id="@+id/camere_iv"-->
-    <!--        android:layout_width="match_parent"-->
-    <!--        android:layout_height="200dp"-->
-    <!--        tools:ignore="MissingConstraints"-->
-    <!--        tools:layout_editor_absoluteX="0dp"-->
-    <!--        tools:layout_editor_absoluteY="70dp" />-->
+        <variable
+            name="performanceMonitor"
+            type="life.memx.chat.view.PerformanceMonitorViewModel" />
 
-    <!--    <FrameLayout-->
-    <!--        android:id="@+id/camera_preview"-->
-    <!--        android:layout_width="fill_parent"-->
-    <!--        android:layout_height="fill_parent"-->
-    <!--        android:layout_weight="1"-->
-    <!--        tools:ignore="MissingConstraints"-->
-    <!--        tools:layout_editor_absoluteX="16dp"-->
-    <!--        tools:layout_editor_absoluteY="243dp" />-->
+    </data>
 
-
-    <LinearLayout
+    <androidx.drawerlayout.widget.DrawerLayout
+        android:id="@+id/dlContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center_horizontal"
-        android:orientation="vertical">
+        tools:context=".MainActivity">
 
 
-        <Switch
-            android:id="@+id/camera_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="Camera"
-            android:textOff="Off"
-            android:textOn="On" />
-
-        <Switch
-            android:id="@+id/audio_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="Audio"
-            android:textOff="Off"
-            android:textOn="On" />
-
-        <EditText
-            android:id="@+id/user_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:hint="User ID"
-            android:inputType="text" />
-
-        <Spinner
-            android:id="@+id/server_spinner"
-            android:layout_width="230dp"
-            android:layout_height="34dp"
-            android:entries="@array/server_ips" />
-
-        <Button
-            android:id="@+id/upload_user_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Set ID" />
-
-        <androidx.camera.view.PreviewView
-            android:id="@+id/previewView"
-            android:layout_width="118dp"
-            android:layout_height="133dp" />
-
-        <TextView
-            android:id="@+id/state_text"
-            android:layout_width="383dp"
-            android:layout_height="31dp"
-            android:text="State:" />
-
-        <TextView
-            android:id="@+id/response_text"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+
+            <LinearLayout
+                android:id="@+id/outerContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center_horizontal"
+                android:focusableInTouchMode="true"
+                android:clickable="true"
+                android:orientation="vertical"
+                android:focusable="true">
+
+                <Switch
+                    android:id="@+id/camera_switch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="相机"
+                    android:textOff="关闭"
+                    android:textOn="开启" />
+
+                <Switch
+                    android:id="@+id/audio_switch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="语音"
+                    android:textOff="关闭"
+                    android:textOn="开启" />
+
+                <EditText
+                    android:id="@+id/user_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:hint="用户ID"
+                    android:inputType="text" />
+
+                <Spinner
+                    android:id="@+id/server_spinner"
+                    android:layout_width="230dp"
+                    android:layout_height="34dp"
+                    android:entries="@array/server_ips" />
+
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
+
+                    <Button
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginRight="10dp"
+                        android:onClick="checkNet"
+                        android:text="net detact" />
+
+                    <Button
+                        android:id="@+id/upload_user_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Set ID" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <!-- <FrameLayout
+                        android:id="@+id/fragment_container"
+                        android:layout_width="0dp"
+                        android:layout_height="200dp"
+                        android:layout_weight="1"
+                        android:padding="4dp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_bias="0.0" /> -->
+
+                    <androidx.camera.view.PreviewView
+                        android:id="@+id/previewView"
+                        android:layout_width="0dp"
+                        android:layout_height="200dp"
+                        android:layout_weight="1"
+                        android:padding="4dp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_bias="0.0" />
+
+                    <ScrollView
+                        android:id="@+id/state_scroll"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@color/black">
+
+                        <TextView
+                            android:id="@+id/state_text"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_margin="4dp"
+                            android:background="@color/black"
+                            android:padding="4dp"
+                            android:text="State:"
+                            android:textColor="@color/white"
+                            android:textSize="14sp"
+                            android:isScrollContainer="true"/>
+                    </ScrollView>
+                </LinearLayout>
+
+                <EditText
+                    android:id="@+id/chatLogText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ems="10"
+                    android:layout_marginLeft="15dp"
+                    android:layout_marginRight="15dp"
+                    android:inputType="text"
+                    android:textColor="@color/BLUE_A050"
+                    android:text="Chat logs" />
+
+                <ScrollView
+                    android:id="@+id/response_scroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="15dp"
+                    android:layout_marginRight="15dp"
+                    android:layout_marginBottom="10dp">
+                    <TextView
+                        android:id="@+id/response_text"
+                        android:layout_marginTop="-10dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:isScrollContainer="true" />
+                </ScrollView>
+            </LinearLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <LinearLayout
+            android:layout_width="300dp"
             android:layout_height="match_parent"
-            android:layout_marginLeft="15dp"
-            android:layout_marginRight="15dp"
-            android:layout_marginBottom="10dp"
-            android:hint="Response"
-            android:isScrollContainer="true" />
+            android:layout_gravity="start"
+            android:background="#FFFFFF"
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/textView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="TextView" />
+            <TextView
+                android:id="@+id/tvNetSpeed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:textSize="24sp" />
 
-        <TextView
-            android:id="@+id/textView2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="TextView" />
-    </LinearLayout>
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_margin="10sp"
+                android:background="@android:color/darker_gray" />
+
+            <TextView
+                android:id="@+id/tvUploadDelay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.uploadDelay}"
+                android:textSize="24sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.asrDelay}"
+                android:textSize="24sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.promptDelay}"
+                android:textSize="24sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.gptDelay}"
+                android:textSize="24sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.ttsDelay}"
+                android:textSize="24sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.pullDelay}"
+                android:textSize="24sp" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_margin="10sp"
+                android:background="@android:color/darker_gray" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:text="@{performanceMonitor.processingDelay}"
+                android:textSize="24sp" />
 
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        </LinearLayout>
+
+    </androidx.drawerlayout.widget.DrawerLayout>
+</layout>
