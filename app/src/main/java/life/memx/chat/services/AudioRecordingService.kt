@@ -120,7 +120,7 @@ class AliAsrRecorder internal constructor(private val activity: AppCompatActivit
     private var audioRecorder: AudioRecord? = null
 //    private var count = 1
     private var filePath = Environment.getExternalStorageDirectory().path.toString() +
-                           "/Android/data/life.memx.chat/"
+                           "/Android/data/Memx4elder/"
     private var PCMPath: String = ""    // store the pcm raw file
     private var WAVPath: String = ""    // store the wav file (which was sent to ali)
     // the first half to store 0.5s audio before VAD, the second half to record 0.5s audio after VAD
@@ -234,7 +234,9 @@ class AliAsrRecorder internal constructor(private val activity: AppCompatActivit
             val `object` = JSONObject()
             //账号和项目创建
             //  ak_id ak_secret app_key如何获得,请查看https://help.aliyun.com/document_detail/72138.html
-            `object`.put("app_key", "zS1WMjZMsFpKdGhB") // 必填
+            //英文key：zS1WMjZMsFpKdGhB
+            //中文key：7tKXJRDNPZACBhxF
+            `object`.put("app_key", "7tKXJRDNPZACBhxF") // 必填
             `object`.put("token", token) // 必填
             `object`.put(
                 "url", "https://nls-gateway.cn-shanghai.aliyuncs.com/stream/v1/FlashRecognizer"

@@ -3,6 +3,6 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">192.168.31.5</domain>
         <domain includeSubdomains="true">10.176.34.117</domain>
-        <domain includeSubdomains="true">150.158.82.234</domain>
+        <domain includeSubdomains="true">106.15.239.131</domain>
     </domain-config>
 </network-security-config>
