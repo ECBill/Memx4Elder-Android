@@ -86,17 +86,20 @@ class HomeActivity : AppCompatActivity() {
     private var dlContainer: DrawerLayout? = null
     private var uid: String = ""
 
-    private var server_url: String = "https://samantha.memx.life"
+    private var server_url: String = "http://106.15.239.131:7000"
     private var is_first = true
 
     private lateinit var viewBinding: ActivityHomeBinding
     private lateinit var performanceMonitorView: PerformanceMonitorViewModel
+    @RequiresApi(Build.VERSION_CODES.R)
     private val PERMISSIONS_REQUIRED: Array<String> = arrayOf<String>(
         Manifest.permission.READ_EXTERNAL_STORAGE,
         Manifest.permission.WRITE_EXTERNAL_STORAGE,
         Manifest.permission.MANAGE_EXTERNAL_STORAGE,
         Manifest.permission.CAMERA,
-        Manifest.permission.RECORD_AUDIO
+        Manifest.permission.RECORD_AUDIO,
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
     )
     private lateinit var pullResponseJob: Job // this is used to handle pullResponse task
     private var tempFilePath = Environment.getExternalStorageDirectory().path.toString() +
@@ -108,8 +111,8 @@ class HomeActivity : AppCompatActivity() {
     private var eyeImageQueue: Queue<ByteArray> = LinkedList<ByteArray>()
     private var voiceQueue: Queue<String> = LinkedList<String>()
 
-    private var userInactivityTimer: Timer? = null
-    private val inactivityTimeout = 120000L
+//    private var userInactivityTimer: Timer? = null
+//    private val inactivityTimeout = 600000L
 
     @Volatile
     private var audio: StringBuilder = StringBuilder()
@@ -130,6 +133,7 @@ class HomeActivity : AppCompatActivity() {
     private var audioRecorder = AudioRecording(audioQueue, this)
     private var mediaPlayer = MediaPlayer()
     private var aliRecorder = AliAsrRecorder(this, server_url, object : INativeFileTransCallback {
+
         override fun onFileTransEventCallback(
             event: Constants.NuiEvent,
             resultCode: Int,
@@ -137,10 +141,11 @@ class HomeActivity : AppCompatActivity() {
             asrResult: AsrResult,
             taskId: String
         ) {
+            Log.e("ali sdk", "开始执行")
             if (event == Constants.NuiEvent.EVENT_FILE_TRANS_UPLOADED) {
                 Log.e("ali sdk", "完成上传，正在转写...")
             } else if (event == Constants.NuiEvent.EVENT_FILE_TRANS_RESULT) {
-                Log.e("ali sdk", asrResult.asrResult)
+                Log.e("ali sdk", "asrResult:"+asrResult.asrResult)
                 val results = JSONObject(asrResult.asrResult)
                     .getJSONObject("flash_result")
                     .get("sentences") as JSONArray
@@ -237,30 +242,48 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun verifyPermissions(activity: Activity) = PERMISSIONS_REQUIRED.all {
         ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
     }
 
 
-    private fun resetInactivityTimer() {
-        userInactivityTimer?.cancel()
-        userInactivityTimer = Timer()
-        userInactivityTimer?.schedule(object : TimerTask() {
-            @RequiresApi(Build.VERSION_CODES.O)
-            override fun run() {
-                runOnUiThread {
-                    initiateAutoChat()
-                }
-            }
-        }, inactivityTimeout)
-    }
+    private var triggerCount = 0
+    private val maxTriggers = 2
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun initiateAutoChat() {
-        pushData(1)
-        Log.d(TAG, "initiateAutoChat triggered")
-        resetInactivityTimer()
-    }
+//    private fun resetInactivityTimer() {
+//        userInactivityTimer?.cancel()
+//        userInactivityTimer = Timer()
+//        userInactivityTimer?.schedule(object : TimerTask() {
+//            @RequiresApi(Build.VERSION_CODES.O)
+//            override fun run() {
+//                runOnUiThread {
+//                    // 只有在计数器小于最大触发次数时才触发
+//                    if (triggerCount < maxTriggers) {
+//                        initiateAutoChat()
+//                        triggerCount++
+//                    } else {
+//                        Log.d(TAG, "Max triggers reached, not triggering initiateAutoChat")
+//                    }
+//                }
+//            }
+//        }, inactivityTimeout)
+//    }
+//
+//    @RequiresApi(Build.VERSION_CODES.O)
+//    private fun initiateAutoChat() {
+//        pushData(1)
+//        Log.d(TAG, "initiateAutoChat triggered")
+//        Log.d(TAG, "triggerCount:"+triggerCount.toString())
+//        resetInactivityTimer()
+//    }
+
+//    // 其他重置计数器和计时器的函数
+//    private fun resetTriggerCount() {
+//        triggerCount = 0
+//        resetInactivityTimer()
+//    }
+
 
     private fun handleInterrupt(text: String) {
         setStateText("Interrupt detected: $text", true, INFOMSG)
@@ -292,6 +315,7 @@ class HomeActivity : AppCompatActivity() {
         isListening = true
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
     @SuppressLint("HardwareIds")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -340,7 +364,9 @@ class HomeActivity : AppCompatActivity() {
             3f,
             locationListener
         )
-        resetInactivityTimer()
+        Log.d(TAG, "启动时triggerCount")
+//        resetTriggerCount()
+//        resetInactivityTimer()
         run()
     }
 
@@ -353,6 +379,7 @@ class HomeActivity : AppCompatActivity() {
         deleteCache()
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun checkPermissions() {
         if (!verifyPermissions(this)) {
             ActivityCompat.requestPermissions(
@@ -361,6 +388,76 @@ class HomeActivity : AppCompatActivity() {
         } else {
             run()
         }
+    }
+
+
+
+    private fun startAudioAndVideo() {
+        try {
+
+            if (!audioRecorder.isRecording()) {
+                Log.d(TAG, "Attempting to start audio recording")
+                audioRecorder.setNeedRecording(true)
+                audioRecorder.startRecording()
+                Log.d(TAG, "Audio recording started successfully")
+            } else {
+                Log.d(TAG, "Audio recorder is already running")
+            }
+            imageCapturer.setNeedCapturing(true)
+
+
+            // 检查并启动媒体播放器
+            if (!mediaPlayer.isPlaying) {
+                Log.d(TAG, "Attempting to start media player")
+                mediaPlayer.reset()
+
+                // 确保 voiceQueue 不为空
+                if (voiceQueue.isNotEmpty()) {
+                    val audioFilePath = voiceQueue.remove() // 从 voiceQueue 获取音频文件路径
+                    Log.d(TAG, "Audio file path: $audioFilePath")
+                    mediaPlayer.setDataSource(audioFilePath)
+                    Log.d(TAG, "Media player data source set successfully")
+                    mediaPlayer.prepare()
+                    Log.d(TAG, "Media player prepared successfully")
+                    mediaPlayer.start()
+                    Log.d(TAG, "Media player started successfully")
+                } else {
+                    Log.e(TAG, "Voice queue is empty")
+                }
+            } else {
+                Log.d(TAG, "Media player is already playing")
+            }
+        } catch (e: IOException) {
+            Log.e(TAG, "IOException while starting media player: ${e.message}", e)
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "IllegalStateException while starting media player: ${e.message}", e)
+        } catch (e: NoSuchElementException) {
+            Log.e(TAG, "NoSuchElementException while starting media player: ${e.message}", e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting audio or video: ${e.message}", e)
+        }
+    }
+
+
+    private fun stopAudioAndVideo() {
+        try {
+            audioRecorder.setNeedRecording(false)
+            audioRecorder.stopRecording()
+            imageCapturer.setNeedCapturing(false)
+            if (mediaPlayer.isPlaying) {
+                mediaPlayer.stop()
+            }
+            mediaPlayer.reset()
+
+            clearVoiceQueue()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping audio or video: $e")
+        }
+    }
+
+    private fun clearVoiceQueue() {
+        Log.d(TAG, "Clearing voice queue")
+        voiceQueue.clear()
     }
 
     private fun registerCameraSwitch() {
@@ -515,13 +612,21 @@ class HomeActivity : AppCompatActivity() {
         var display_text = ""
         for (item in responseQueue) {
             if (item.startsWith("<User>")) {
-                Log.e("display string", item)
+                if (item.substring(7).contains("User seems to be absent, say something related to him or some health tips.")) {
+                    display_text += "<font color='#009900' weight='600'>System: </font>" +
+                            item.substring(7) + "<br>"
+                    continue
+                }
                 display_text += "<font color='#FF9900' weight='600'>User: </font>" +
                         item.substring(7) + "<br>"
+//                resetTriggerCount()
+
             } else {
                 display_text += "$item<br>"
             }
         }
+        Log.e("display string 123", responseQueue.last())
+
         var displaySpan: Spanned
         displaySpan = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             Html.fromHtml(display_text, Html.FROM_HTML_MODE_LEGACY)
@@ -532,13 +637,37 @@ class HomeActivity : AppCompatActivity() {
         responseScroll?.fullScroll(View.FOCUS_DOWN)
     }
 
+
+
+
+
+    private var isFirstStart = true
+
     override fun onStart() {
         super.onStart()
+        if (isFirstStart) {
+            // 此处执行初始化操作
+            isFirstStart = false
+        }
     }
 
     override fun onStop() {
         super.onStop()
         setStateText("State: stop event triggered.", true)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!isFirstStart) {
+            startAudioAndVideo()
+            setStateText("State: resumed", true)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopAudioAndVideo()
+        setStateText("State: paused", true)
     }
 
 
@@ -748,8 +877,10 @@ class HomeActivity : AppCompatActivity() {
                 applicationContext, "pullResponse error: $e", Toast.LENGTH_LONG
             ).show()
         }
-        pullResponseJob = GlobalScope.launch {
-            pullResponseLoop()
+        if (!this::pullResponseJob.isInitialized || pullResponseJob.isCancelled) {
+            pullResponseJob = GlobalScope.launch {
+                pullResponseLoop()
+            }
         }
 
         GlobalScope.launch {
@@ -766,8 +897,7 @@ class HomeActivity : AppCompatActivity() {
                     while (mediaPlayer.isPlaying) {
                     }
                     audioRecorder.startRecording()
-                    mediaPlayer.release()
-                    mediaPlayer = MediaPlayer()
+                    mediaPlayer.reset()
                 } catch (e: Exception) {
                     Log.e(TAG, "playback error: $e")
                     Looper.prepare()
@@ -827,7 +957,9 @@ class HomeActivity : AppCompatActivity() {
 
                     // 仅在有对话内容时重置计时器
                     if (text.isNotEmpty()) {
-                        resetInactivityTimer()
+                        Log.d(TAG, "有对话内容时triggerCount")
+//                        resetTriggerCount()
+//                        resetInactivityTimer()
                     }
                 }
 
@@ -894,6 +1026,7 @@ class HomeActivity : AppCompatActivity() {
                     }
                     Log.i("onResponse voice: ", voice)
                     setResponseText(text)
+                    Log.d(TAG, "reply text: $text")
 
                     if (text.startsWith("[")) {
                         pkgCounter = 0
@@ -920,7 +1053,8 @@ class HomeActivity : AppCompatActivity() {
                     }
                     if (voice.isNotEmpty()) {
                         voiceQueue.add(voice)
-                        resetInactivityTimer()
+                        Log.d(TAG, "voice:"+voice)
+//                        resetInactivityTimer()
                     }
 
                 }

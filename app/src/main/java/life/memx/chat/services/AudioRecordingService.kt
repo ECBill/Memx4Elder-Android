@@ -7,9 +7,11 @@ package life.memx.chat.services
 //import com.konovalov.vad.silero.config.Mode
 //import com.konovalov.vad.silero.config.SampleRate
 import android.annotation.SuppressLint
+import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import android.util.Log
@@ -102,6 +104,10 @@ class AudioRecording internal constructor(
         }
     }
 
+    fun isRecording(): Boolean {
+        return isRecording
+    }
+
     fun setNeedRecording(needRecording: Boolean) {
         this.needRecording = needRecording
     }
@@ -120,7 +126,7 @@ class AliAsrRecorder internal constructor(private val activity: AppCompatActivit
     private var audioRecorder: AudioRecord? = null
 //    private var count = 1
     private var filePath = Environment.getExternalStorageDirectory().path.toString() +
-                           "/Android/data/Memx4elder/"
+                           "/Android/data/Memx4ElderTest/"
     private var PCMPath: String = ""    // store the pcm raw file
     private var WAVPath: String = ""    // store the wav file (which was sent to ali)
     // the first half to store 0.5s audio before VAD, the second half to record 0.5s audio after VAD
@@ -173,7 +179,7 @@ class AliAsrRecorder internal constructor(private val activity: AppCompatActivit
         val request = Request.Builder().url(url).build()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("ali sdk", "fetch token failed!")
+                Log.e("ali sdk", "fetch token failed!",e)
             }
             override fun onResponse(call: Call, response: Response) {
                 var responseStr = response.body!!.string()
@@ -212,7 +218,38 @@ class AliAsrRecorder internal constructor(private val activity: AppCompatActivit
             "use workspace $assets_path"
         )
 
-        val debug_path: String = filePath
+        // 检查路径是否存在
+        val assetsDir = File(assets_path)
+        if (!assetsDir.exists() || !assetsDir.isDirectory) {
+            Log.e("ali sdk", "Assets directory does not exist or is not a directory: $assets_path")
+            return
+        }
+
+        // 检查文件是否存在并且具有正确的读写权限
+        val files = assetsDir.listFiles()
+        if (files != null) {
+            for (file in files) {
+                Log.i("ali sdk", "File in assets directory: ${file.name}")
+                if (!file.canRead() || !file.canWrite()) {
+                    Log.e("ali sdk", "File does not have read/write permissions: ${file.name}")
+                    return
+                }
+            }
+        } else {
+            Log.e("ali sdk", "No files found in assets directory: $assets_path")
+            return
+        }
+
+        val debug_path: String = getSDPath(activity) + "/Memx4ElderTest"
+
+        // 检查调试路径是否存在，如果不存在则创建
+        if (!isFolderExists(debug_path)) {
+            Log.e("ali sdk", "Failed to create debug directory: $debug_path")
+            return
+        }
+
+        Log.i("ali sdk", "debug path: $debug_path")
+
         //初始化SDK，注意用户需要在Auth.getAliYunTicket中填入相关ID信息才可以使用。
         val ret: Int = nui_instance.initialize(
             interruptHandler,
@@ -226,6 +263,25 @@ class AliAsrRecorder internal constructor(private val activity: AppCompatActivit
         } else {
             Log.e("ali sdk", "init failed!")
         }
+    }
+
+    private fun getSDPath(context: Context): String {
+        val sdDir: File? = if (Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED) {
+            if (Build.VERSION.SDK_INT >= 29) {
+                // Android 10 及以上
+                context.getExternalFilesDir(null)
+            } else {
+                Environment.getExternalStorageDirectory() // 获取SD卡根目录
+            }
+        } else {
+            Environment.getRootDirectory() // 获取根目录
+        }
+        return sdDir?.toString() ?: ""
+    }
+
+    private fun isFolderExists(strFolder: String): Boolean {
+        val file = File(strFolder)
+        return file.exists() || file.mkdirs()
     }
 
     private fun genInitParams(workpath: String, debugpath: String, token: String): String? {
@@ -281,25 +337,61 @@ class AliAsrRecorder internal constructor(private val activity: AppCompatActivit
     }
 
     private fun writeDateTOFile() {
-        // just for test, save all the files
-//        PCMPath = "$filePath/RawAudio$count.pcm"
-//        WAVPath = "$filePath/FinalAudio$count.wav"
+        try {
+            // 获取应用私有的外部存储目录
+            val externalFilesDir = activity.getExternalFilesDir(null)
+            if (externalFilesDir == null) {
+                throw IOException("External files directory is null")
+            }
 
-        PCMPath = "$filePath/RawAudio.pcm"
-        WAVPath = "$filePath/FinalAudio.wav"
-        val file = File(PCMPath)
-        if (!file.parentFile.exists()) {
-            file.parentFile.mkdirs()
+            // 定义文件路径
+            filePath = externalFilesDir.absolutePath
+            PCMPath = "$filePath/RawAudio.pcm"
+            WAVPath = "$filePath/FinalAudio.wav"
+
+            // 创建文件对象
+            val file = File(PCMPath)
+
+            // 确保父目录存在
+            val parentDir = file.parentFile
+            if (parentDir != null && !parentDir.exists()) {
+                if (!parentDir.mkdirs()) {
+                    throw IOException("Failed to create directory: ${parentDir.absolutePath}")
+                } else {
+                    Log.i("writeDateTOFile", "Directory created successfully: ${parentDir.absolutePath}")
+                }
+            } else {
+                Log.i("writeDateTOFile", "Directory already exists: ${parentDir.absolutePath}")
+            }
+
+            // 如果文件存在则删除
+            if (file.exists()) {
+                if (!file.delete()) {
+                    throw IOException("Failed to delete existing file: ${file.absolutePath}")
+                } else {
+                    Log.i("writeDateTOFile", "Existing file deleted: ${file.absolutePath}")
+                }
+            }
+
+            // 创建新文件
+            if (!file.createNewFile()) {
+                throw IOException("Failed to create new file: ${file.absolutePath}")
+            } else {
+                Log.i("writeDateTOFile", "New file created successfully: ${file.absolutePath}")
+            }
+
+            // 写入数据
+            BufferedOutputStream(FileOutputStream(file)).use { out ->
+                out.write(fileBuffer, 0, fileBuffer.size)
+                out.flush()
+                Log.i("writeDateTOFile", "Data written to file successfully: ${file.absolutePath}")
+            }
+
+        } catch (e: IOException) {
+            Log.e("writeDateTOFile", "Error writing to file: ${e.message}")
         }
-        if (file.exists()) {
-            file.delete()
-        }
-        file.createNewFile()
-        val out = BufferedOutputStream(FileOutputStream(file))
-        out.write(fileBuffer, 0, fileBuffer.size)
-        out.flush()
-        out.close()
     }
+
 
     private fun copyWaveFile(pcmPath: String, wavPath: String) {
 
